@@ -1,0 +1,185 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 1. User & Authentication
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("WARGA") // WARGA | PENGURUS | ADMIN
+  status       String    @default("ACTIVE") // ACTIVE | PENDING_APPROVAL | SUSPENDED
+  communityId  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  community            Community?            @relation(fields: [communityId], references: [id])
+  pengurusApplications PengurusApplication[]
+  assessmentSessions   AssessmentSession[]
+
+  @@map("users")
+}
+
+// 2. Community (Lingkungan RT/RW/Desa)
+model Community {
+  id          String   @id @default(cuid())
+  name        String   // e.g. "RT 03 / RW 05 Sekaran"
+  rt          String   // "03"
+  rw          String   // "05"
+  kelurahan   String   // "Sekaran"
+  kecamatan   String   // "Gunung Pati"
+  kota        String   // "Kota Semarang"
+  province    String   @default("Jawa Tengah")
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members              User[]
+  pengurusApplications PengurusApplication[]
+  assessmentSessions   AssessmentSession[]
+  evacuationPoints     EvacuationPoint[]
+  evacuationRoutes     EvacuationRoute[]
+  emergencyContacts    EmergencyContact[]
+
+  @@map("communities")
+}
+
+// 3. Pengurus Application Flow (Warga -> Pengurus verification by Admin)
+model PengurusApplication {
+  id          String    @id @default(cuid())
+  userId      String
+  communityId String
+  fullName    String
+  phoneNumber String
+  position    String    // e.g. "Ketua RT", "Sekretaris RW", "Sie Keamanan"
+  reason      String
+  status      String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminNotes  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@map("pengurus_applications")
+}
+
+// 4. Assessment Questions (Dynamic Bank Soal)
+model AssessmentQuestion {
+  id         String   @id @default(cuid())
+  question   String
+  category   String   // EVACUATION | FACILITY | INFORMATION | EMERGENCY_CONTACT
+  targetRole String   @default("ALL") // ALL | WARGA | PENGURUS
+  weight     Float    @default(1.0)
+  order      Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  answers AssessmentAnswer[]
+
+  @@map("assessment_questions")
+}
+
+// 5. Assessment Session (Context: Who, Community, Role, Score, When)
+model AssessmentSession {
+  id               String   @id @default(cuid())
+  userId           String
+  communityId      String
+  roleAtSubmit     String   // WARGA | PENGURUS
+  score            Float    // Readiness Score: (met / total) * 100
+  totalQuestions   Int
+  metCount         Int      // 'YA'
+  facilityGapCount Int      // 'TIDAK'
+  awarenessGapCount Int     // 'TIDAK_TAHU'
+  actionPlanJson   String?  // Serialized list of ActionPlan items
+  completedAt      DateTime @default(now())
+
+  // Relations
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community          @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  answers   AssessmentAnswer[]
+
+  @@map("assessment_sessions")
+}
+
+// 6. Assessment Answer (Details per question)
+model AssessmentAnswer {
+  id         String @id @default(cuid())
+  sessionId  String
+  questionId String
+  answer     String // YA | TIDAK | TIDAK_TAHU
+
+  // Relations
+  session  AssessmentSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId])
+  @@map("assessment_answers")
+}
+
+// 7. Geospatial: Evacuation Point
+model EvacuationPoint {
+  id          String   @id @default(cuid())
+  communityId String
+  name        String   // e.g. "Lapangan Utama RT 03"
+  type        String   // ASSEMBLY_POINT | AID_POST | HAZARD_POINT
+  description String?
+  latitude    Float
+  longitude   Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@map("evacuation_points")
+}
+
+// 8. Geospatial: Evacuation Route (Polyline coordinates in JSON)
+model EvacuationRoute {
+  id          String   @id @default(cuid())
+  communityId String
+  name        String   // e.g. "Jalur Evakuasi Barat menuju Lapangan"
+  description String?
+  coordinates String   // JSON array: "[[ -7.049, 110.438 ], [ -7.050, 110.439 ]]"
+  color       String   @default("#10b981")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@map("evacuation_routes")
+}
+
+// 9. Emergency Contacts
+model EmergencyContact {
+  id          String   @id @default(cuid())
+  communityId String?
+  name        String   // e.g. "Puskesmas Gunung Pati", "BPBD Kota Semarang"
+  category    String   // BPBD | DAMKAR | MEDIS | KEPOLISIAN | PENGURUS_RT
+  phoneNumber String
+  isGlobal    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  community Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@map("emergency_contacts")
+}
