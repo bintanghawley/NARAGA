@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,16 +30,11 @@ export default function RootLayout({
       lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
+      <body className="min-h-full flex flex-col bg-white text-gray-900 selection:bg-teal-100 selection:text-teal-900">
         <Providers>
           <Navbar />
-          <main className="flex-1">{children}</main>
-          <footer className="border-t border-gray-200 bg-white py-6 text-center text-xs text-gray-500">
-            <div className="max-w-7xl mx-auto px-4">
-              <p className="font-semibold text-gray-700">NARAGA &bull; Platform Kesiapsiagaan Komunitas</p>
-              <p className="mt-1">Infinitera 2.0 Web Development Competition &bull; Menuju SDG 11: Pemukiman Tangguh Bencana</p>
-            </div>
-          </footer>
+          <main className="flex-1 bg-white">{children}</main>
+          <Footer />
         </Providers>
       </body>
     </html>

@@ -2,83 +2,124 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { Shield, MapPin, ClipboardCheck, Bot, User, LogOut, LogIn, Lock } from "lucide-react";
+import { Bell, User, LogOut, Shield, Compass, Sparkles } from "lucide-react";
+import { useState } from "react";
 
 export default function Navbar() {
   const { data: session } = useSession();
   const user = session?.user as any;
+  const [showNotification, setShowNotification] = useState(false);
 
   return (
-    <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-sm">
-            N
-          </div>
-          <div>
-            <span className="text-xl font-black tracking-tight text-gray-900">NARAGA</span>
-            <span className="hidden sm:inline-block ml-2 text-xs font-medium px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-              Kesiapsiagaan Komunitas
-            </span>
-          </div>
+    <header className="bg-white/95 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100 transition-all">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        {/* Brand Logo */}
+        <Link href="/" className="flex items-center gap-1 group">
+          <span className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e6f68] group-hover:opacity-90 transition">
+            NARAGA<span className="text-[#14b8a6]">.</span>
+          </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-          <Link href="/dashboard" className="hover:text-emerald-600 transition flex items-center gap-1.5">
-            <User className="w-4 h-4" /> Dashboard
+        {/* Center Navigation Links */}
+        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-700">
+          <Link
+            href="/assessment"
+            className="hover:text-[#0e6f68] transition-colors py-1 hover:font-semibold"
+          >
+            Assessment
           </Link>
-          <Link href="/assessment" className="hover:text-emerald-600 transition flex items-center gap-1.5">
-            <ClipboardCheck className="w-4 h-4" /> Asesmen
+          <Link
+            href="/map"
+            className="hover:text-[#0e6f68] transition-colors py-1 hover:font-semibold"
+          >
+            Peta Evakuasi
           </Link>
-          <Link href="/map" className="hover:text-emerald-600 transition flex items-center gap-1.5">
-            <MapPin className="w-4 h-4" /> Peta Evakuasi
-          </Link>
-          <Link href="/ai" className="hover:text-emerald-600 transition flex items-center gap-1.5">
-            <Bot className="w-4 h-4" /> Tanya AI
+          <Link
+            href="/ai"
+            className="hover:text-[#0e6f68] transition-colors py-1 flex items-center gap-1 text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full text-xs font-semibold"
+          >
+            <Sparkles className="w-3 h-3 text-teal-600" /> Tanya AI
           </Link>
           {user?.role === "ADMIN" && (
-            <Link href="/admin" className="text-purple-700 hover:text-purple-900 transition flex items-center gap-1.5 font-semibold">
-              <Lock className="w-4 h-4" /> Admin Panel
+            <Link
+              href="/admin"
+              className="text-purple-700 hover:text-purple-900 transition flex items-center gap-1 font-semibold text-xs bg-purple-50 px-2.5 py-1 rounded-full"
+            >
+              <Shield className="w-3 h-3" /> Admin Panel
             </Link>
           )}
         </nav>
 
-        <div className="flex items-center gap-3">
+        {/* Right Section: Notification, User Profile, CTA */}
+        <div className="flex items-center gap-4">
+          {/* Notification Bell with interactive popover */}
+          <div className="relative">
+            <button
+              onClick={() => setShowNotification(!showNotification)}
+              className="p-2 text-gray-600 hover:text-[#0e6f68] hover:bg-teal-50 rounded-full transition relative"
+              aria-label="Notifikasi"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+            </button>
+
+            {showNotification && (
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                  <span className="text-xs font-bold text-gray-800">Pemberitahuan</span>
+                  <span className="text-[10px] text-teal-600 font-semibold bg-teal-50 px-2 py-0.5 rounded-full">Baru</span>
+                </div>
+                <div className="mt-2 space-y-2">
+                  <div className="p-2 rounded-xl bg-teal-50/70 border border-teal-100/60">
+                    <p className="text-xs font-semibold text-teal-900">Asesmen Siaga Baru</p>
+                    <p className="text-[11px] text-teal-700 mt-0.5">Komunitas RT 03 Sekaran baru saja memperbarui rute evakuasi darurat.</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-gray-50 border border-gray-100">
+                    <p className="text-xs font-semibold text-gray-800">Peta Jalur Aman</p>
+                    <p className="text-[11px] text-gray-600 mt-0.5">Posko darurat utama telah diverifikasi oleh BPBD setempat.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* User Profile / Session Status */}
           {session ? (
             <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-semibold text-gray-900">{user?.name}</p>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                  user?.role === "ADMIN"
-                    ? "bg-purple-100 text-purple-700"
-                    : user?.role === "PENGURUS"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-emerald-100 text-emerald-700"
-                }`}>
-                  {user?.role}
-                </span>
-              </div>
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-gray-100 transition text-gray-700"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#0e6f68] text-white flex items-center justify-center font-bold text-xs">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-xs font-bold text-gray-900 leading-tight">{user?.name?.split(" ")[0]}</p>
+                  <span className="text-[10px] font-semibold text-teal-700">{user?.role}</span>
+                </div>
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
-                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition"
                 title="Keluar"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Link
                 href="/login"
-                className="text-sm font-semibold text-gray-700 hover:text-emerald-600 px-3 py-1.5 rounded-lg transition"
+                className="p-2 text-gray-600 hover:text-[#0e6f68] hover:bg-teal-50 rounded-full transition"
+                title="Masuk Akun"
               >
-                Masuk
+                <User className="w-5 h-5" />
               </Link>
               <Link
                 href="/register"
-                className="text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg shadow-sm transition"
+                className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-[#0e6f68] hover:bg-[#0a524d] text-white text-sm font-semibold shadow-sm hover:shadow transition transform active:scale-95"
               >
-                Daftar Warga
+                Daftar
               </Link>
             </div>
           )}

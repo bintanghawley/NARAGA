@@ -30,30 +30,68 @@ export default function EvacuationMap({
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const routesLayerRef = useRef<L.LayerGroup | null>(null);
 
+  // 1. Inisialisasi Map hanya SEKALI saat mount
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    const container = mapContainerRef.current;
+    if (!container) return;
 
-    // Bersihkan map instance lama jika ada
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
+    // Bersihkan _leaflet_id jika ada sisa dari hot reload / fast refresh
+    if ((container as any)._leaflet_id) {
+      delete (container as any)._leaflet_id;
     }
 
     // Default center ke titik pertama atau default Semarang (-7.049, 110.438)
     const initialLat = points.length > 0 ? points[0].latitude : -7.04921;
     const initialLng = points.length > 0 ? points[0].longitude : 110.43825;
 
-    const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 16);
+    const map = L.map(container, {
+      center: [initialLat, initialLng],
+      zoom: 16,
+      scrollWheelZoom: true,
+    });
     mapInstanceRef.current = map;
 
-    // Tambahkan OpenStreetMap tile layer publik
+    // Tile layer OpenStreetMap
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> kontributor',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> kontributor',
       maxZoom: 19,
     }).addTo(map);
 
-    // Custom Icon Maker
+    // Buat LayerGroup untuk Marker dan Rute
+    const markersGroup = L.layerGroup().addTo(map);
+    const routesGroup = L.layerGroup().addTo(map);
+    markersLayerRef.current = markersGroup;
+    routesLayerRef.current = routesGroup;
+
+    // Cleanup saat unmount
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+      if (container && (container as any)._leaflet_id) {
+        delete (container as any)._leaflet_id;
+      }
+    };
+  }, []);
+
+  // 2. Update Marker dan Rute secara reaktif tanpa re-create map instance
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const markersGroup = markersLayerRef.current;
+    const routesGroup = routesLayerRef.current;
+
+    if (!map || !markersGroup || !routesGroup) return;
+
+    // Bersihkan layer lama
+    markersGroup.clearLayers();
+    routesGroup.clearLayers();
+
+    // Helper pembuat icon
     const createMarkerIcon = (type: string) => {
       let bgColor = "#10b981"; // Assembly point: hijau
       let label = "TK";
@@ -75,11 +113,11 @@ export default function EvacuationMap({
       });
     };
 
-    // Render Markers
+    // Tambahkan Marker
     points.forEach((pt) => {
       const marker = L.marker([pt.latitude, pt.longitude], {
         icon: createMarkerIcon(pt.type),
-      }).addTo(map);
+      });
 
       marker.bindPopup(`
         <div style="font-family:sans-serif; padding:2px;">
@@ -89,17 +127,19 @@ export default function EvacuationMap({
           <p style="margin:4px 0 0; font-size:10px; color:#888;">Koordinat: ${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}</p>
         </div>
       `);
+
+      markersGroup.addLayer(marker);
     });
 
-    // Render Routes (Polylines)
+    // Tambahkan Rute Evakuasi (Polylines)
     routes.forEach((route) => {
       if (route.coordinates && route.coordinates.length > 0) {
         const polyline = L.polyline(route.coordinates, {
           color: route.color || "#10b981",
           weight: 5,
-          opacity: 0.8,
+          opacity: 0.85,
           dashArray: "6, 8",
-        }).addTo(map);
+        });
 
         polyline.bindPopup(`
           <div style="font-family:sans-serif; padding:2px;">
@@ -107,18 +147,21 @@ export default function EvacuationMap({
             <p style="margin:0; font-size:12px; color:#444;">${route.description || "Jalur Evakuasi Lingkungan"}</p>
           </div>
         `);
+
+        routesGroup.addLayer(polyline);
       }
     });
 
-    return () => {
-      map.remove();
-    };
+    // Pan map jika ada titik
+    if (points.length > 0) {
+      map.panTo([points[0].latitude, points[0].longitude]);
+    }
   }, [points, routes]);
 
   return (
     <div
       ref={mapContainerRef}
-      className="w-full h-[500px] rounded-2xl overflow-hidden border border-gray-200 z-0"
+      className="w-full h-[500px] rounded-2xl overflow-hidden border border-gray-200 z-0 shadow-inner"
     />
   );
 }
