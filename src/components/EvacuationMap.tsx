@@ -97,7 +97,7 @@ export default function EvacuationMap({
       let label = "TK";
 
       if (type === "AID_POST") {
-        bgColor = "#3b82f6"; // Posko: biru
+        bgColor = "#8b5cf6"; // Posko: ungu
         label = "PK";
       } else if (type === "HAZARD_POINT") {
         bgColor = "#ef4444"; // Bahaya: merah

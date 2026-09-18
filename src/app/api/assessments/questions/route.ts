@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const questions = await prisma.assessmentQuestion.findMany({
       where: { isActive: true },
-      orderBy: [{ category: "asc" }, { order: "asc" }],
+      orderBy: { order: "asc" },
     });
 
     return NextResponse.json({ questions });

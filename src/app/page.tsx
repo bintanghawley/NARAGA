@@ -247,7 +247,7 @@ export default function HomePage() {
       </section>
 
       {/* 3. ALUR KERJA SISTEMATIS: "Kenali. Perbaiki. Siapkan." */}
-      <section className="py-24 sm:py-32 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="proses" className="py-24 sm:py-32 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-20">
         <div className="text-center space-y-3 max-w-2xl mx-auto mb-16 sm:mb-20">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#0e6f68] tracking-tight">
             Kenali. Perbaiki. Siapkan.
@@ -324,7 +324,7 @@ export default function HomePage() {
       </section>
 
       {/* 4. LIHAT SEBERAPA SIAP LINGKUNGANMU (Persis sesuai screenshot) */}
-      <section className="relative py-20 overflow-hidden bg-gradient-to-b from-[#eef7fc]/60 via-[#f3f9f8]/40 to-white">
+      <section id="hasil" className="relative py-20 overflow-hidden bg-gradient-to-b from-[#eef7fc]/60 via-[#f3f9f8]/40 to-white scroll-mt-20">
         {/* Soft Blue/Cyan Glow on Left Margin */}
         <div className="absolute left-0 top-0 bottom-0 w-48 bg-gradient-to-r from-[#d9eff9]/50 via-[#e0f3f8]/20 to-transparent pointer-events-none -z-10" />
 
@@ -487,7 +487,7 @@ export default function HomePage() {
       </section>
 
       {/* 5. APA KATA MEREKA? (Persis sesuai screenshot) */}
-      <section className="relative py-20 sm:py-24 bg-white overflow-hidden">
+      <section id="testimoni" className="relative py-20 sm:py-24 bg-white overflow-hidden scroll-mt-20">
         {/* Decorative Wave Lines - Nempel di kanan dan proporsional */}
         <div className="absolute right-0 top-16 sm:top-20 md:top-24 lg:top-20 w-60 sm:w-72 md:w-[320px] lg:w-[380px] xl:w-[420px] h-14 sm:h-16 md:h-20 text-[#0e6f68] pointer-events-none hidden md:block z-0">
           <svg viewBox="0 0 260 55" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full" preserveAspectRatio="none">

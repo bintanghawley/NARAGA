@@ -3,19 +3,18 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import {
-  Shield,
-  Activity,
-  MapPin,
+  Compass,
   Bot,
+  Settings,
+  ClipboardList,
+  ArrowRight,
+  Shield,
   AlertTriangle,
   CheckCircle2,
-  Users,
-  Building2,
-  Phone,
-  ArrowRight,
-  ClipboardCheck,
+  Sparkles,
 } from "lucide-react";
 import DashboardClientActions from "./DashboardClientActions";
+import ActionPlanSection, { ActionPlanItem } from "./ActionPlanSection";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -52,250 +51,375 @@ export default async function DashboardPage() {
     (a) => a.status === "PENDING"
   );
 
+  const firstName = user.name ? user.name.split(" ")[0] : "Evan";
+  const hasTakenTest = Boolean(latestSession);
+
+  // Komunitas detail
+  const communityName =
+    user.community?.name || "Komunitas Siaga RT 03 / RW 05 Sekaran";
+  const communityDetail = user.community
+    ? `RT ${user.community.rt} / RW ${user.community.rw}, Kel. ${user.community.kelurahan}`
+    : "RT 03 / RW 05, Kel. Sekaran";
+
+  // Data Skor & Metrik
+  const displayScore = latestSession ? Math.round(latestSession.score) : 72;
+  const displayFacilityGaps = latestSession ? latestSession.facilityGapCount : 3;
+  const displayMetCount = latestSession ? (latestSession.metCount || 8) : 8;
+
+  let scoreTitle = "Cukup Siap";
+  let scoreDesc =
+    "Beberapa aspek sudah terpenuhi, namun masih ada yang perlu diperbaiki.";
+  if (displayScore >= 80) {
+    scoreTitle = "Sangat Siap";
+    scoreDesc = "Sebagian besar aspek kesiapsiagaan telah terpenuhi dengan sangat baik.";
+  } else if (displayScore < 50) {
+    scoreTitle = "Kurang Siap";
+    scoreDesc = "Perlu banyak perbaikan sarana keselamatan dan sosialisasi warga.";
+  }
+
+  // Data Action Plan Rekomendasi
+  const defaultActionPlans: ActionPlanItem[] = [
+    {
+      id: "action-1",
+      title: "Pengadaan & Penataan Sarana Evakuasi Lingkungan",
+      priority: "Tinggi",
+      description:
+        "Menetapkan lokasi titik kumpul aman yang disepakati musyawarah warga serta memasang rambu evakuasi hijau standar pada persimpangan gang/jalan (Apakah lingkungan RT/RW Anda telah memiliki titik kumpul aman (assembly point) resmi yang telah disepakati bersama?).",
+    },
+    {
+      id: "action-2",
+      title: "Perbaikan Fasilitas Kesiapsiagaan",
+      priority: "Tinggi",
+      description:
+        "Menindaklanjuti ketiadaan fasilitas keselamatan terkait: Apakah setiap keluarga di lingkungan Anda memahami panduan penyusunan Tas Siaga Bencana (dokumen penting, senter, P3K, makanan tahan lama)?",
+    },
+    {
+      id: "action-3",
+      title: "Pengadaan & Penataan Sarana Evakuasi Lingkungan",
+      priority: "Tinggi",
+      description:
+        "Menetapkan lokasi titik kumpul aman yang disepakati musyawarah warga serta memasang rambu evakuasi hijau standar pada persimpangan gang/jalan (Apakah jalur evakuasi menuju titik kumpul telah dilengkapi dengan rambu atau penunjuk arah yang jelas dan mudah terlihat?).",
+    },
+  ];
+
+  let actionPlanItems: ActionPlanItem[] = defaultActionPlans;
+  if (latestSession?.actionPlanJson) {
+    try {
+      const parsed = JSON.parse(latestSession.actionPlanJson);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        actionPlanItems = parsed.map((item: any, idx: number) => ({
+          id: item.id || `plan-${idx}`,
+          title: item.title || "Tindakan Kesiapsiagaan",
+          priority:
+            item.priority === "HIGH"
+              ? "Tinggi"
+              : item.priority === "MEDIUM"
+              ? "Sedang"
+              : item.priority || "Tinggi",
+          description: item.description || "",
+        }));
+      }
+    } catch (e) {
+      actionPlanItems = defaultActionPlans;
+    }
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Header Profil & Ringkasan Peran */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                user.role === "ADMIN"
-                  ? "bg-purple-100 text-purple-700 border border-purple-200"
-                  : user.role === "PENGURUS"
-                  ? "bg-blue-100 text-blue-700 border border-blue-200"
-                  : "bg-emerald-100 text-emerald-700 border border-emerald-200"
-              }`}
-            >
-              Role: {user.role}
-            </span>
-            <span className="text-xs text-gray-500 font-mono">
-              Status: {user.status}
-            </span>
-          </div>
-          <h1 className="text-2xl font-black text-gray-900">
-            Selamat Datang, {user.name}
-          </h1>
-          <p className="text-sm text-gray-600 flex items-center gap-1.5">
-            <Building2 className="w-4 h-4 text-gray-400" />
-            {user.community
-              ? `Komunitas: ${user.community.name} (RT ${user.community.rt} / RW ${user.community.rw}, Kel. ${user.community.kelurahan})`
-              : "Anda belum bergabung dengan lingkungan RT/RW mana pun"}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
+        {/* ======================================================== */}
+        {/* 1. SIDEBAR KIRI (Floating White Card Sesuai Desain Figma) */}
+        {/* ======================================================== */}
+        <aside className="w-full lg:w-64 bg-white rounded-[28px] p-4 shadow-sm border border-gray-100 flex-shrink-0 space-y-2">
+          {/* Menu 1: Overview (Aktif - Deep Teal Pill) */}
           <Link
-            href="/assessment"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-sm"
+            href="/dashboard"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[#0e6f68] text-white font-semibold text-sm shadow-xs transition"
           >
-            <ClipboardCheck className="w-4 h-4" />
-            Isi Asesmen Kesiapsiagaan
+            <div className="w-5 h-5 flex items-center justify-center">
+              <Compass className="w-5 h-5 text-white" />
+            </div>
+            <span>Overview</span>
           </Link>
-          {user.role === "ADMIN" && (
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition shadow-sm"
-            >
-              <Shield className="w-4 h-4" />
-              Panel Verifikasi Admin
-            </Link>
-          )}
-        </div>
-      </div>
 
-      {/* Widget Pemilihan Lingkungan jika belum bergabung */}
-      {!user.communityId && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 space-y-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <h2 className="text-base font-bold text-amber-900">
-                Pilih Lingkungan Pemukiman Anda
-              </h2>
-              <p className="text-xs text-amber-700 mt-1">
-                Untuk melihat rute evakuasi, kontak darurat, dan mengukur kesiapsiagaan wilayah Anda, silakan pilih lingkungan RT/RW yang tersedia:
-              </p>
+          {/* Menu 2: Tanya AI ✨ */}
+          <Link
+            href="/ai"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
+          >
+            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
+              <Bot className="w-5 h-5" />
             </div>
-          </div>
-          <DashboardClientActions
-            communities={allCommunities}
-            userId={user.id}
-            isJoined={false}
-          />
-        </div>
-      )}
-
-      {/* Notifikasi Status Pengajuan Pengurus */}
-      {pendingApplication && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-blue-600" />
-            <div>
-              <p className="text-sm font-bold text-blue-900">
-                Pengajuan Peran Pengurus Sedang Ditinjau Admin
-              </p>
-              <p className="text-xs text-blue-700 mt-0.5">
-                Diajukan untuk jabatan <strong>{pendingApplication.position}</strong> pada {new Date(pendingApplication.createdAt).toLocaleDateString("id-ID")}.
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-1 bg-blue-100 text-blue-800 rounded-lg">
-            Menunggu Verifikasi
-          </span>
-        </div>
-      )}
-
-      {/* Status Readiness Lingkungan Saat Ini */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card Skor Kesiapan */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Readiness Score
+            <span className="flex items-center gap-1.5">
+              Tanya AI <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             </span>
-            <Activity className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <div className="text-4xl font-extrabold text-gray-900">
-              {latestSession ? `${latestSession.score}%` : "--"}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {latestSession
-                ? `${latestSession.metCount} dari ${latestSession.totalQuestions} indikator keselamatan terpenuhi`
-                : "Belum ada data evaluasi lingkungan"}
-            </p>
-          </div>
-          <div className="pt-2 border-t border-gray-100">
-            <Link
-              href="/assessment"
-              className="text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1"
-            >
-              {latestSession ? "Perbarui Asesmen" : "Mulai Evaluasi Sekarang"} &rarr;
-            </Link>
-          </div>
-        </div>
+          </Link>
 
-        {/* Card Kesenjangan Fasilitas Fisik */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Facility Gaps (Belum Ada)
-            </span>
-            <AlertTriangle className="w-5 h-5 text-red-500" />
-          </div>
-          <div>
-            <div className="text-4xl font-extrabold text-red-600">
-              {latestSession ? latestSession.facilityGapCount : "--"}
+          {/* Menu 3: Settings */}
+          <Link
+            href="/dashboard#settings"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
+          >
+            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
+              <Settings className="w-5 h-5" />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Sarana fisik keselamatan yang belum tersedia di pemukiman
-            </p>
-          </div>
-          <div className="pt-2 border-t border-gray-100">
-            <Link
-              href="/ai?topic=fasilitas"
-              className="text-xs font-semibold text-red-600 hover:underline flex items-center gap-1"
-            >
-              Konsultasi Solusi Fasilitas via AI &rarr;
-            </Link>
-          </div>
-        </div>
+            <span>Settings</span>
+          </Link>
+        </aside>
 
-        {/* Card Kesenjangan Pemahaman / Sosialisasi */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Awareness Gaps (Tidak Tahu)
-            </span>
-            <CheckCircle2 className="w-5 h-5 text-amber-500" />
-          </div>
-          <div>
-            <div className="text-4xl font-extrabold text-amber-600">
-              {latestSession ? latestSession.awarenessGapCount : "--"}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Indikator yang belum tersosialisasikan dengan jelas ke warga
-            </p>
-          </div>
-          <div className="pt-2 border-t border-gray-100">
-            <Link
-              href="/ai?topic=sosialisasi"
-              className="text-xs font-semibold text-amber-600 hover:underline flex items-center gap-1"
-            >
-              Langkah Sosialisasi Efektif &rarr;
-            </Link>
-          </div>
-        </div>
-      </div>
+        {/* ======================================================== */}
+        {/* 2. KONTEN UTAMA KANAN                                     */}
+        {/* ======================================================== */}
+        <main className="flex-1 w-full space-y-6">
+          {/* ---------------------------------------------------- */}
+          {/* STATE A: SEBELUM MELAKUKAN TES                       */}
+          {/* ---------------------------------------------------- */}
+          {!hasTakenTest ? (
+            <>
+              {/* Sapaan Awal */}
+              <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
+                Welcome , {firstName}
+              </h1>
 
-      {/* Rencana Aksi (Action Plan) Terakhir */}
-      {latestSession?.actionPlanJson && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">
-                Daftar Rekomendasi Rencana Aksi (Action Plan Terkini)
-              </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Dihasilkan secara otomatis oleh sistem berdasarkan deteksi kesenjangan kesiapan
-              </p>
-            </div>
-            <Link
-              href="/assessment"
-              className="text-xs font-semibold text-emerald-600 hover:underline"
-            >
-              Lihat Detail Asesmen
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {JSON.parse(latestSession.actionPlanJson).map((item: any) => (
-              <div
-                key={item.id}
-                className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      item.gapType === "FACILITY_GAP"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {item.gapType === "FACILITY_GAP" ? "Kebutuhan Fisik" : "Kebutuhan Sosialisasi"}
-                  </span>
-                  <span className="text-[10px] font-semibold text-gray-500">
-                    Prioritas: {item.priority}
-                  </span>
+              {/* Banner 1: Lakukan Tes (Mint Green Card) */}
+              <div className="bg-[#d7f5ef] border border-[#a2ecd8] rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 transition-all">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#bbf0e4] flex items-center justify-center flex-shrink-0 text-[#0e6f68] mt-0.5">
+                    <ClipboardList className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+                      Lakukan Tes
+                    </h2>
+                    <p className="text-xs sm:text-sm text-gray-700 leading-relaxed max-w-2xl font-normal">
+                      Lakukan tes kesiapan lingkungan untuk melihat seberapa siap lingkunganmu menghadapi bencana alam
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-sm font-bold text-gray-900">{item.title}</h3>
-                <p className="text-xs text-gray-600 leading-relaxed">{item.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Opsi Pengajuan Pengurus jika role masih WARGA dan belum ada pending request */}
-      {user.role === "WARGA" && !pendingApplication && user.communityId && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <h2 className="text-base font-bold text-blue-950">
-              Apakah Anda Pengurus RT/RW di Lingkungan Ini?
-            </h2>
-            <p className="text-xs text-blue-700 max-w-xl">
-              Ajukan peningkatan hak akses menjadi Pengurus Lingkungan untuk dapat mengelola titik kumpul aman, menambah rute evakuasi pada peta, dan memantau kesiapan warga.
-            </p>
-          </div>
-          <DashboardClientActions
-            communities={allCommunities}
-            userId={user.id}
-            isJoined={true}
-            userCommunityId={user.communityId}
-          />
-        </div>
-      )}
+                <Link
+                  href="/assessment"
+                  className="bg-[#0e6f68] hover:bg-[#0a524d] text-white font-medium text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 whitespace-nowrap transition transform active:scale-98 shadow-sm flex-shrink-0 self-start md:self-center"
+                >
+                  <span>Mulai Tes Kesiapanmu</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {/* Banner 2: Tentukan Lingkungan Tempat Tinggal Anda (Peach Card) */}
+              <DashboardClientActions
+                communities={allCommunities}
+                userId={user.id}
+                userCommunity={user.community}
+                userRole={user.role}
+                pendingApplication={pendingApplication}
+                showLocationBanner={true}
+                showPengurusBanner={false}
+              />
+
+              {/* 3 Summary Cards Placeholder State */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Card 1: Kesiapsiagaan lingkungan */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
+                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                    <Shield className="w-4 h-4 text-gray-700" />
+                    <span>Kesiapsiagaan lingkungan</span>
+                  </div>
+
+                  <div className="my-6 flex items-center justify-center">
+                    <div className="relative w-32 h-32 flex items-center justify-center">
+                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                          stroke="#dbe7f2"
+                          strokeWidth="10"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-[11px] font-medium text-gray-500">Skor</span>
+                        <span className="text-xl sm:text-2xl font-black text-gray-900">--</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-extrabold text-gray-900 tracking-tight">Belum ada</p>
+                    <p className="text-xs text-gray-500 mt-1">Akan tampil skor kesiapan lingkunganmu</p>
+                  </div>
+                </div>
+
+                {/* Card 2: Kesenjangan Fasilitas */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
+                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                    <AlertTriangle className="w-4 h-4 text-gray-700" />
+                    <span>Kesenjangan Fasilitas</span>
+                  </div>
+
+                  <div className="my-10 flex items-center justify-center">
+                    <div className="w-6 h-1.5 bg-red-500 rounded-full" />
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-extrabold text-gray-900 tracking-tight">Belum ada</p>
+                    <p className="text-xs text-gray-500 mt-1">Akan tampil jumlah kesenjangan fasilitas</p>
+                  </div>
+                </div>
+
+                {/* Card 3: Kesenjangan Pemahaman */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
+                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-gray-700" />
+                    <span>Kesenjangan Pemahaman</span>
+                  </div>
+
+                  <div className="my-10 flex items-center justify-center">
+                    <div className="w-6 h-1.5 bg-[#0e6f68] rounded-full" />
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-extrabold text-gray-900 tracking-tight">Cukup Siap</p>
+                    <p className="text-xs text-gray-500 mt-1">Akan tampil jumlah kesenjangan pemahaman</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ---------------------------------------------------- */
+            /* STATE B: SETELAH MELAKUKAN TES (Sesuai Desain Figma)  */
+            /* ---------------------------------------------------- */
+            <>
+              {/* Sapaan Welcome back & Detail Komunitas */}
+              <div className="space-y-1">
+                <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
+                  Welcome back, {firstName}
+                </h1>
+                <p className="text-sm sm:text-base font-bold text-gray-900">
+                  {communityName} ({communityDetail})
+                </p>
+              </div>
+
+              {/* 3 Summary Cards State Hasil Tes */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Card 1: Kesiapsiagaan lingkungan (Orange Donut Meter) */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
+                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                    <Shield className="w-4 h-4 text-gray-700" />
+                    <span>Kesiapsiagaan lingkungan</span>
+                  </div>
+
+                  {/* Circular Orange Donut Sesuai Figma */}
+                  <div className="my-6 flex items-center justify-center">
+                    <div className="relative w-32 h-32 flex items-center justify-center">
+                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#f3f4f6"
+                          strokeWidth="11"
+                        />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="transparent"
+                          stroke="#f5840d"
+                          strokeWidth="11"
+                          strokeDasharray={238.76}
+                          strokeDashoffset={238.76 * (1 - displayScore / 100)}
+                          strokeLinecap="round"
+                          className="transition-all duration-1000"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-xs font-medium text-gray-400">Skor</span>
+                        <span className="text-2xl sm:text-3xl font-extrabold text-[#f5840d]">
+                          {displayScore}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-black text-gray-900 tracking-tight">
+                      {scoreTitle}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                      {scoreDesc}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Card 2: Kesenjangan Fasilitas (Big Red 3 Number Sesuai Figma) */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
+                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                    <AlertTriangle className="w-4 h-4 text-gray-700" />
+                    <span>Kesenjangan Fasilitas</span>
+                  </div>
+
+                  {/* Red Big Number Left Aligned */}
+                  <div className="my-6 flex items-center justify-start">
+                    <span className="text-4xl sm:text-5xl font-extrabold text-red-500 tracking-tight">
+                      {displayFacilityGaps}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-black text-gray-900 tracking-tight">
+                      Belum Tersedia
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                      Fasilitas keselamatan yang masih perlu disediakan.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Card 3: Kesenjangan Pemahaman (Big Teal 8 Number Sesuai Figma) */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
+                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-gray-700" />
+                    <span>Kesenjangan Pemahaman</span>
+                  </div>
+
+                  {/* Teal Big Number Left Aligned */}
+                  <div className="my-6 flex items-center justify-start">
+                    <span className="text-4xl sm:text-5xl font-extrabold text-[#0e6f68] tracking-tight">
+                      {displayMetCount}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-black text-gray-900 tracking-tight">
+                      Sudah Terpenuhi
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                      Aspek kesiapsiagaan yang sudah terpenuhi di lingkungan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Seksi Action Plan Interaktif */}
+              <ActionPlanSection initialItems={actionPlanItems} />
+
+              {/* Banner Pengurus Lingkungan & Modal Actions */}
+              <DashboardClientActions
+                communities={allCommunities}
+                userId={user.id}
+                userCommunity={user.community}
+                userRole={user.role}
+                pendingApplication={pendingApplication}
+                showLocationBanner={false}
+                showPengurusBanner={true}
+              />
+            </>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

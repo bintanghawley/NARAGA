@@ -2,7 +2,16 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Bot, Send, User, Sparkles, AlertCircle, CheckCircle2, Shield } from "lucide-react";
+import Link from "next/link";
+import {
+  Compass,
+  Bot,
+  Settings,
+  Sparkles,
+  ArrowRight,
+  Copy,
+  Check,
+} from "lucide-react";
 
 interface Message {
   id: string;
@@ -12,7 +21,13 @@ interface Message {
 
 export default function AIChatPage() {
   return (
-    <Suspense fallback={<div className="max-w-4xl mx-auto py-20 text-center text-sm text-gray-500">Memuat AI Assistant...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#ebf4fa] flex items-center justify-center py-20 text-sm text-gray-500">
+          Memuat Talk With NARAGA.AI...
+        </div>
+      }
+    >
       <AIChatContent />
     </Suspense>
   );
@@ -25,15 +40,15 @@ function AIChatContent() {
 
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "intro",
+      id: "intro-1",
       role: "assistant",
       content:
-        "Halo! Saya adalah **Context-Aware AI Assistant NARAGA**. Saya siap membantu Anda menganalisis kesenjangan kesiapsiagaan lingkungan, menyusun rencana aksi mitigasi, dan panduan evakuasi praktis.",
+        "Halo! Saya adalah NARAGA.AI . Saya siap membantu Anda menganalisis kesenjangan kesiapsiagaan lingkungan, menyusun rencana aksi mitigasi, dan panduan evakuasi praktis.",
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [groundingInfo, setGroundingInfo] = useState<any>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +58,7 @@ function AIChatContent() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, loading]);
 
   useEffect(() => {
     if (initialTopic === "fasilitas") {
@@ -52,6 +67,12 @@ function AIChatContent() {
       setInput("Bagaimana cara efektif menyosialisasikan jalur evakuasi dan titik kumpul kepada seluruh warga?");
     }
   }, [initialTopic]);
+
+  const handleCopy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || input;
@@ -88,16 +109,14 @@ function AIChatContent() {
             content: data.reply,
           },
         ]);
-        if (data.contextGrounded) {
-          setGroundingInfo(data.contextGrounded);
-        }
       } else {
         setMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             role: "assistant",
-            content: "Mohon maaf, terjadi kendala saat memproses jawaban. Silakan coba kembali.",
+            content:
+              "Mohon maaf, terjadi kendala saat memproses jawaban. Silakan coba kembali sesaat lagi.",
           },
         ]);
       }
@@ -107,7 +126,7 @@ function AIChatContent() {
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: "Tidak dapat terhubung ke server asisten.",
+          content: "Tidak dapat terhubung ke server asisten AI.",
         },
       ]);
     } finally {
@@ -118,127 +137,187 @@ function AIChatContent() {
   const samplePrompts = [
     "Apa saja prioritas perbaikan berdasarkan asesmen lingkungan saya?",
     "Bagaimana menentukan titik kumpul aman yang ideal?",
-    "Apa saja barang penting yang wajib ada di Tas Siaga Bencana?",
-    "Bagaimana menyosialisasikan kontak darurat ke warga?",
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
-            <Bot className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              Context-Aware AI Assistant
-            </h1>
-            <p className="text-xs text-gray-500">
-              Didukung Gemini API &bull; Menjawab berdasarkan konteks data kesiapan pemukiman
-            </p>
-          </div>
-        </div>
-
-        {groundingInfo && (
-          <div className="text-xs px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-800 rounded-xl space-y-0.5">
-            <p className="font-semibold flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-purple-600" /> Grounding Aktif:
-            </p>
-            <p className="text-[11px] text-purple-700">
-              Wilayah: <strong>{groundingInfo.communityName}</strong>
-              {groundingInfo.readinessScore !== null && ` (Skor: ${groundingInfo.readinessScore}%)`}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Chat Container */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col h-[520px]">
-        {/* Messages List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex items-start gap-3 ${
-                m.role === "user" ? "flex-row-reverse" : ""
-              }`}
-            >
-              <div
-                className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold ${
-                  m.role === "user"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-purple-100 text-purple-700"
-                }`}
-              >
-                {m.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-              </div>
-
-              <div
-                className={`max-w-[80%] rounded-2xl p-4 text-sm leading-relaxed ${
-                  m.role === "user"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-gray-50 text-gray-800 border border-gray-100 whitespace-pre-line"
-                }`}
-              >
-                {m.content}
-              </div>
-            </div>
-          ))}
-
-          {loading && (
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4 animate-pulse" />
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4 text-xs text-gray-500 border border-gray-100">
-                Sedang menganalisis konteks kesiapan wilayah...
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Suggested Chips */}
-        <div className="px-6 py-2 border-t border-gray-100 flex gap-2 overflow-x-auto">
-          {samplePrompts.map((sp, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSend(sp)}
-              className="text-[11px] whitespace-nowrap bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full transition"
-            >
-              {sp}
-            </button>
-          ))}
-        </div>
-
-        {/* Input Bar */}
-        <div className="p-4 border-t border-gray-100">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex items-center gap-2"
+    <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
+        {/* ======================================================== */}
+        {/* 1. SIDEBAR KIRI (Floating White Card Sesuai Desain Figma) */}
+        {/* ======================================================== */}
+        <aside className="w-full lg:w-64 bg-white rounded-[28px] p-4 shadow-sm border border-gray-100 flex-shrink-0 space-y-2">
+          {/* Menu 1: Overview (Inactive) */}
+          <Link
+            href="/dashboard"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
           >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Tanyakan langkah kesiapsiagaan atau solusi kesenjangan..."
-              className="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <Send className="w-4 h-4" />
-              Kirim
-            </button>
-          </form>
-        </div>
+            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
+              <Compass className="w-5 h-5" />
+            </div>
+            <span>Overview</span>
+          </Link>
+
+          {/* Menu 2: Tanya AI ✨ (Active - Deep Teal Pill) */}
+          <Link
+            href="/ai"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[#0e6f68] text-white font-semibold text-sm shadow-xs transition"
+          >
+            <div className="w-5 h-5 flex items-center justify-center">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <span className="flex items-center gap-1.5">
+              Tanya AI <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            </span>
+          </Link>
+
+          {/* Menu 3: Settings (Inactive) */}
+          <Link
+            href="/dashboard#settings"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
+          >
+            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
+              <Settings className="w-5 h-5" />
+            </div>
+            <span>Settings</span>
+          </Link>
+        </aside>
+
+        {/* ======================================================== */}
+        {/* 2. KONTEN UTAMA KANAN (Talk With NARAGA.AI)               */}
+        {/* ======================================================== */}
+        <main className="flex-1 w-full space-y-6">
+          {/* Header Title & Subtitle */}
+          <div className="space-y-1">
+            <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
+              Talk With NARAGA.AI
+            </h1>
+            <p className="text-sm sm:text-base font-bold text-gray-900 max-w-3xl leading-relaxed">
+              Ceritakan kondisi lingkunganmu dan dapatkan penjelasan serta saran berdasarkan hasil kesiapsiagaanmu.
+            </p>
+          </div>
+
+          {/* Main Chat Box Container (Floating White Card Sesuai Figma) */}
+          <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-gray-100 shadow-sm flex flex-col justify-between min-h-[580px]">
+            {/* Conversation Messages Area */}
+            <div className="flex-1 overflow-y-auto space-y-6 pr-1 max-h-[520px]">
+              {messages.map((m) => {
+                const isAI = m.role === "assistant";
+
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex items-start gap-3.5 ${
+                      isAI ? "justify-start" : "justify-end"
+                    }`}
+                  >
+                    {/* Bot Avatar Icon di kiri pesan AI */}
+                    {isAI && (
+                      <div className="w-9 h-9 rounded-full bg-[#0e6f68] text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
+                        <Bot className="w-5 h-5" />
+                      </div>
+                    )}
+
+                    {/* Chat Bubble */}
+                    <div className="relative group max-w-xl">
+                      <div
+                        className={`p-4 sm:p-5 text-sm sm:text-[15px] leading-relaxed shadow-xs transition-all ${
+                          isAI
+                            ? "bg-[#edf8f6] text-gray-800 rounded-2xl rounded-tl-sm font-normal"
+                            : "bg-[#0e6f68] text-white rounded-2xl rounded-tr-sm font-medium"
+                        }`}
+                      >
+                        <div className="whitespace-pre-line">{m.content}</div>
+                      </div>
+
+                      {/* Tombol Copy Clipboard untuk pesan AI */}
+                      {isAI && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(m.id, m.content)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-2 -right-2 p-1.5 bg-white border border-gray-200 text-gray-600 hover:text-[#0e6f68] rounded-lg shadow-xs text-xs flex items-center gap-1 cursor-pointer"
+                          title="Salin ke clipboard"
+                        >
+                          {copiedId === m.id ? (
+                            <Check className="w-3 h-3 text-[#0e6f68]" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Typing Indicator (Animasi 3 Titik Sesuai Desain Figma) */}
+              {loading && (
+                <div className="flex items-center gap-3.5 animate-in fade-in duration-200">
+                  <div className="w-9 h-9 rounded-full bg-[#0e6f68] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <div className="bg-[#edf8f6] rounded-full px-5 py-3.5 flex items-center gap-2 shadow-xs">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <span
+                      className="w-2.5 h-2.5 rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <span
+                      className="w-2.5 h-2.5 rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Bottom Inner Box: Suggestion Pills + Input Field (Sesuai Desain Figma) */}
+            <div className="border border-gray-200/90 rounded-2xl p-2.5 sm:p-3 bg-white space-y-2.5 mt-6">
+              {/* Suggestion Prompt Pills */}
+              <div className="flex flex-wrap items-center gap-2 pb-2.5 border-b border-gray-100/90">
+                {samplePrompts.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSend(prompt)}
+                    className="bg-gray-100/90 hover:bg-gray-200 text-gray-700 text-xs px-3.5 py-1.5 rounded-full transition cursor-pointer font-normal text-left"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Input Form Row */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+                className="flex items-center gap-2 pl-2"
+              >
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Tanyakan langkah kesiapsiagaan atau solusi kesenjangan ..."
+                  className="flex-1 text-xs sm:text-sm text-gray-800 placeholder-gray-400 bg-transparent focus:outline-none py-1"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !input.trim()}
+                  className="w-9 h-9 rounded-full bg-[#0e6f68] hover:bg-[#0a524d] text-white flex items-center justify-center flex-shrink-0 transition cursor-pointer shadow-xs disabled:opacity-40"
+                  aria-label="Kirim Pesan"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );

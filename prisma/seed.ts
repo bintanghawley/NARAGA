@@ -103,84 +103,42 @@ async function main() {
 
   console.log("👥 Akun default (Admin, Pengurus, Warga) berhasil dibuat.");
 
-  // 4. Bank Soal Asesmen Kesiapsiagaan (Indikator Baku Destana BNPB)
+  // 4. Bank Soal Asesmen Kesiapsiagaan (Sesuai Desain Figma NARAGA)
   const questions = [
-    // Pilar 1: EVACUATION
     {
-      question: "Apakah lingkungan RT/RW Anda telah memiliki titik kumpul aman (assembly point) resmi yang telah disepakati bersama?",
+      question: "Apakah lingkungan memiliki titik kumpul yang sudah ditentukan?",
       category: "EVACUATION",
       targetRole: "ALL",
       weight: 1.0,
       order: 1,
     },
     {
-      question: "Apakah jalur evakuasi menuju titik kumpul telah dilengkapi dengan rambu atau penunjuk arah yang jelas dan mudah terlihat?",
+      question: "Apakah warga mengetahui jalur evakuasi yang harus digunakan?",
       category: "EVACUATION",
       targetRole: "ALL",
       weight: 1.0,
       order: 2,
     },
     {
-      question: "Apakah jalur evakuasi bebas dari hambatan fisik (seperti gerbang terkunci, jalan buntu sempit, atau timbunan material)?",
-      category: "EVACUATION",
+      question: "Apakah informasi kontak darurat tersedia dan mudah ditemukan?",
+      category: "EMERGENCY_CONTACT",
       targetRole: "ALL",
       weight: 1.0,
       order: 3,
     },
-
-    // Pilar 2: FACILITY
     {
-      question: "Apakah di lingkungan Anda tersedia alat pemadam api ringan (APAR) atau sumber air darurat yang siap pakai?",
-      category: "FACILITY",
+      question: "Apakah akses menuju titik kumpul dapat digunakan dengan baik?",
+      category: "EVACUATION",
       targetRole: "ALL",
       weight: 1.0,
       order: 4,
     },
     {
-      question: "Apakah terdapat sistem peringatan dini darurat (sirine lingkungan, kentongan manual/digital, atau pengeras suara komunal) yang berfungsi?",
-      category: "FACILITY",
+      question: "Apakah informasi kesiapsiagaan sudah disosialisasikan kepada warga?",
+      category: "INFORMATION",
       targetRole: "ALL",
       weight: 1.0,
       order: 5,
-    },
-    {
-      question: "Apakah lingkungan Anda memiliki posko pertolongan pertama (kotak P3K darurat bersama atau ruang transit evakuasi)?",
-      category: "FACILITY",
-      targetRole: "ALL",
-      weight: 1.0,
-      order: 6,
-    },
-
-    // Pilar 3: INFORMATION & AWARENESS
-    {
-      question: "Apakah pernah dilakukan sosialisasi kesiapsiagaan atau simulasi evakuasi bencana bagi warga lingkungan dalam 1 tahun terakhir?",
-      category: "INFORMATION",
-      targetRole: "ALL",
-      weight: 1.0,
-      order: 7,
-    },
-    {
-      question: "Apakah setiap keluarga di lingkungan Anda memahami panduan penyusunan Tas Siaga Bencana (dokumen penting, senter, P3K, makanan tahan lama)?",
-      category: "INFORMATION",
-      targetRole: "ALL",
-      weight: 1.0,
-      order: 8,
-    },
-
-    // Pilar 4: EMERGENCY_CONTACT
-    {
-      question: "Apakah daftar nomor telepon darurat (Ketua RT/RW, BPBD, Damkar, Puskesmas) dapat diakses dengan mudah dan cepat oleh seluruh warga?",
-      category: "EMERGENCY_CONTACT",
-      targetRole: "ALL",
-      weight: 1.0,
-      order: 9,
-    },
-    {
-      question: "Apakah ada koordinator atau relawan tanggap bencana RT/RW yang identitas dan kontaknya diketahui aktif oleh warga?",
-      category: "EMERGENCY_CONTACT",
-      targetRole: "ALL",
-      weight: 1.0,
-      order: 10,
     },
   ];
 
