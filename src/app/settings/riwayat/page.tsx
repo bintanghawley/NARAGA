@@ -194,7 +194,7 @@ export default async function RiwayatPage() {
                 {/* Kolom Kanan: Tombol Aksi Lihat Hasil */}
                 <div className="self-end sm:self-center">
                   <Link
-                    href={`/assessment?view=result`}
+                    href={`/settings/riwayat/${item.id}`}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 hover:border-[#0e6f68] hover:bg-teal-50/50 hover:text-[#0e6f68] text-xs sm:text-sm font-semibold text-gray-700 transition shadow-2xs group-hover:border-teal-300"
                   >
                     <span>Lihat Hasil</span>
