@@ -18,6 +18,11 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  // Khusus Akun Admin, dashboard digantikan langsung oleh Panel Admin Verifikasi
+  if (session.user.role === "ADMIN") {
+    redirect("/admin");
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {

@@ -54,11 +54,21 @@ export async function POST(req: Request) {
         communityName = community.name;
       }
 
-      const latestSession = await prisma.assessmentSession.findFirst({
-        where: { communityId: targetCommunityId },
-        orderBy: { completedAt: "desc" },
-        include: { answers: { include: { question: true } } },
-      });
+      let latestSession = null;
+      if (session?.user?.id) {
+        latestSession = await prisma.assessmentSession.findFirst({
+          where: { userId: session.user.id },
+          orderBy: { completedAt: "desc" },
+          include: { answers: { include: { question: true } } },
+        });
+      }
+      if (!latestSession && targetCommunityId) {
+        latestSession = await prisma.assessmentSession.findFirst({
+          where: { communityId: targetCommunityId },
+          orderBy: { completedAt: "desc" },
+          include: { answers: { include: { question: true } } },
+        });
+      }
 
       if (latestSession) {
         readinessScore = latestSession.score;

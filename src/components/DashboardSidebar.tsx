@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Compass, Bot, Settings, Sparkles } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Compass, Bot, Settings, Sparkles, Shield } from "lucide-react";
 
 interface SidebarItem {
   name: string;
@@ -12,20 +13,26 @@ interface SidebarItem {
   hasSparkles?: boolean;
 }
 
-const SIDEBAR_ITEMS: SidebarItem[] = [
-  { name: "Overview", href: "/dashboard", icon: Compass },
-  { name: "Tanya AI", href: "/ai", icon: Bot, hasSparkles: true },
-  { name: "Settings", href: "/settings", icon: Settings },
-];
-
 export default function DashboardSidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === "ADMIN";
+
+  const sidebarItems: SidebarItem[] = [
+    {
+      name: isAdmin ? "Panel Admin" : "Overview",
+      href: isAdmin ? "/admin" : "/dashboard",
+      icon: isAdmin ? Shield : Compass,
+    },
+    { name: "Tanya AI", href: "/ai", icon: Bot, hasSparkles: true },
+    { name: "Settings", href: "/settings", icon: Settings },
+  ];
 
   // Tentukan indeks target berdasarkan pathname
   const getTargetIndex = () => {
     if (pathname.startsWith("/ai")) return 1;
     if (pathname.startsWith("/settings")) return 2;
-    return 0; // default /dashboard
+    return 0; // default /dashboard or /admin
   };
 
   const targetIndex = getTargetIndex();
@@ -55,6 +62,17 @@ export default function DashboardSidebar() {
     return () => clearTimeout(timer);
   }, [targetIndex]);
 
+  const scrollToTopMentok = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      document.documentElement.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      document.body.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      }, 250);
+    }
+  };
+
   return (
     <aside className="w-full lg:w-64 bg-white rounded-[28px] p-3 shadow-sm border border-gray-100 flex-shrink-0 lg:sticky lg:top-24 lg:self-start z-20 transition-all">
       <div className="relative flex flex-col gap-1.5">
@@ -66,7 +84,7 @@ export default function DashboardSidebar() {
           }}
         />
 
-        {SIDEBAR_ITEMS.map((item, idx) => {
+        {sidebarItems.map((item, idx) => {
           const Icon = item.icon;
           const isActive = targetIndex === idx;
 
@@ -74,12 +92,16 @@ export default function DashboardSidebar() {
             <Link
               key={item.name}
               href={item.href}
-              onClick={() => {
+              onClick={(e) => {
                 setActiveIndex(idx);
                 if (typeof window !== "undefined") {
                   sessionStorage.setItem("naraga_sidebar_active_idx", idx.toString());
-                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }
+                const linkBase = item.href.split("?")[0];
+                if (pathname === linkBase) {
+                  e.preventDefault();
+                }
+                scrollToTopMentok();
               }}
               className={`relative z-10 w-full h-[48px] flex items-center gap-3 px-4 rounded-xl text-sm font-semibold transition-colors duration-200 cursor-pointer ${
                 isActive

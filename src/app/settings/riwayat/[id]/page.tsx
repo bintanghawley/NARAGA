@@ -21,6 +21,11 @@ export default async function RiwayatDetailPage({ params }: PageProps) {
     redirect("/login");
   }
 
+  // Khusus Akun Admin, alihkan ke Panel Admin Verifikasi
+  if (session.user.role === "ADMIN") {
+    redirect("/admin");
+  }
+
   const { id } = await params;
 
   // Coba ambil sesi asesmen dari database

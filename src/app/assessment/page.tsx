@@ -37,12 +37,14 @@ export default function AssessmentPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Redirect ke login jika unauthenticated
+  // Redirect ke login jika unauthenticated, dan alihkan Admin ke /admin
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/assessment");
+    } else if (status === "authenticated" && (session?.user as any)?.role === "ADMIN") {
+      router.push("/admin");
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -66,8 +68,9 @@ export default function AssessmentPage() {
   useEffect(() => {
     async function fetchData() {
       try {
+        const userRole = (session?.user as any)?.role || "WARGA";
         const [qRes, cRes, hRes] = await Promise.all([
-          fetch("/api/assessments/questions"),
+          fetch(`/api/assessments/questions?role=${encodeURIComponent(userRole)}`),
           fetch("/api/communities"),
           fetch("/api/assessments/history"),
         ]);
@@ -93,6 +96,7 @@ export default function AssessmentPage() {
         const isRetakeRequested = urlParams?.get("retake") === "true";
 
         if (isRetakeRequested) {
+          setCompletedResult(null);
           setShowForm(true);
         } else if (hData.sessions && hData.sessions.length > 0) {
           const latest = hData.sessions[0];
@@ -154,31 +158,12 @@ export default function AssessmentPage() {
                   ],
           });
 
-          // Langsung tampilkan hasil asesmen seperti di riwayat
+          // Langsung tampilkan hasil asesmen milik akun ini
           setShowForm(false);
         } else {
-          // Akun pengguna (khususnya Pengurus yang sudah menyelesaikan asesmen percontohan)
-          // Defaultkan ke hasil kesiapsiagaan 72% yang sinkron dengan dashboard & riwayat
-          setCompletedResult({
-            score: 72,
-            displayDate: "20 September 2026",
-            displayLocation:
-              (session?.user as any)?.communityName || "Karanganyar Gunung",
-            statusTitle: "Cukup Siap",
-            statusDesc:
-              "Beberapa aspek sudah terpenuhi, namun masih ada yang perlu diperbaiki.",
-            gapItems: [
-              "Jalur evakuasi belum diketahui",
-              "Titik kumpul darurat belum terpasang rambu",
-              "Nomor kontak darurat belum tersosialisasi",
-            ],
-            metItems: [
-              "Mengetahui lokasi titik kumpul",
-              "Tersedia posko evakuasi lingkungan",
-              "Ada pengurus siaga bencana",
-            ],
-          });
-          setShowForm(false);
+          // Akun pengguna belum pernah tes -> Tampilkan formulir tes baru langsung!
+          setCompletedResult(null);
+          setShowForm(true);
         }
       } catch (err) {
         console.error("Gagal memuat data asesmen", err);
@@ -425,12 +410,25 @@ export default function AssessmentPage() {
     <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* 1. Header Halaman */}
-        <div className="text-center space-y-2 mb-6">
+        <div className="text-center space-y-2.5 mb-6 animate-emerge">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-200/80 text-[#0e6f68] text-xs font-bold shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-[#0e6f68] animate-pulse" />
+            <span>
+              {(session?.user as any)?.role === "PENGURUS"
+                ? "Asesmen Pengurus: Tata Kelola & Fasilitas Wilayah"
+                : (session?.user as any)?.role === "ADMIN"
+                ? "Asesmen Administrator: Evaluasi Lengkap"
+                : "Asesmen Warga: Kesiapsiagaan Mandiri Keluarga"}
+            </span>
+          </div>
+
           <h1 className="text-2xl sm:text-[32px] font-extrabold text-gray-900 tracking-tight leading-snug">
             Mari Kenali Kesiapan Lingkunganmu
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 max-w-xl mx-auto font-normal leading-relaxed">
-            Evaluasi menyeluruh 30 pertanyaan terstandar. Jawab berdasarkan kondisi lingkunganmu saat ini.
+            {(session?.user as any)?.role === "PENGURUS"
+              ? `Evaluasi tata kelola RT/RW, kesiapan sarana logistik, dan fasilitas umum (${questions.length} butir pertanyaan).`
+              : `Evaluasi kesiapsiagaan mandiri keluarga, hunian, dan pemahaman evakuasi (${questions.length} butir pertanyaan).`}
           </p>
         </div>
 

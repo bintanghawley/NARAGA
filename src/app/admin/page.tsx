@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Phone,
 } from "lucide-react";
+import DashboardSidebar from "@/components/DashboardSidebar";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -85,8 +86,15 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto py-20 text-center text-sm text-gray-500">
-        Memverifikasi kredensial Administrator internal...
+      <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
+          <DashboardSidebar />
+          <main className="flex-1 w-full">
+            <div className="py-20 text-center text-sm text-gray-500">
+              Memverifikasi kredensial Administrator internal...
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
@@ -95,7 +103,17 @@ export default function AdminPage() {
   const historyApps = applications.filter((a) => a.status !== "PENDING");
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
+        {/* ======================================================== */}
+        {/* 1. SIDEBAR KIRI FIXED & ANIMASI SLIDING HIJAU             */}
+        {/* ======================================================== */}
+        <DashboardSidebar />
+
+        {/* ======================================================== */}
+        {/* 2. KONTEN UTAMA PANEL ADMIN                               */}
+        {/* ======================================================== */}
+        <main className="flex-1 w-full space-y-8">
       {/* Header Panel Admin */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -230,8 +248,10 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
-        </div>
+    </div>
       )}
+        </main>
+      </div>
     </div>
   );
 }

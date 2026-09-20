@@ -49,12 +49,14 @@ export default function MapPage() {
   const router = useRouter();
   const user = session?.user as any;
 
-  // Proteksi rute peta: hanya untuk user yang sudah login
+  // Proteksi rute peta: hanya untuk user yang sudah login, Admin diarahkan ke /admin
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/map");
+    } else if (status === "authenticated" && user?.role === "ADMIN") {
+      router.push("/admin");
     }
-  }, [status, router]);
+  }, [status, user, router]);
 
   const [points, setPoints] = useState<EvacuationPoint[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);

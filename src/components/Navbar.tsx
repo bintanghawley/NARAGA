@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { ArrowRight, Menu, X, LogOut, ChevronDown, Shield, Sparkles, User, Settings, MapPin } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 
 export default function Navbar() {
@@ -12,7 +13,13 @@ export default function Navbar() {
   const user = session?.user as any;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [isResultView, setIsResultView] = useState(false);
 
@@ -27,7 +34,16 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const [navAvatar, setNavAvatar] = useState<string>("/images/avatar-evan.jpg");
+  // Role-based default avatars: Admin=evan, Pengurus=raffi, Warga=firman
+  const getRoleDefaultAvatar = (role?: string) => {
+    switch (role) {
+      case "ADMIN": return "/images/avatar-evan.jpg";
+      case "PENGURUS": return "/images/avatar-raffi.jpg";
+      case "WARGA": return "/images/avatar-firman.jpg";
+      default: return "/images/avatar-evan.jpg";
+    }
+  };
+  const [navAvatar, setNavAvatar] = useState<string>(() => getRoleDefaultAvatar(user?.role));
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -41,6 +57,9 @@ export default function Navbar() {
       const saved = localStorage.getItem("naraga_user_avatar");
       if (saved) {
         setNavAvatar(saved);
+      } else {
+        // Set role-based default avatar if no custom avatar saved
+        setNavAvatar(getRoleDefaultAvatar(user?.role));
       }
       const handleAvatar = (e: any) => {
         if (e.detail) {
@@ -48,6 +67,13 @@ export default function Navbar() {
         }
       };
       window.addEventListener("naraga_avatar_changed", handleAvatar);
+
+      if (!window.location.hash) {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        });
+      }
 
       return () => {
         window.removeEventListener("popstate", checkResult);
@@ -62,6 +88,7 @@ export default function Navbar() {
   }
 
   const isAuthUser = !!session;
+  const isAdmin = user?.role === "ADMIN";
 
   // Nav links untuk user yang sedang login vs pengunjung umum
   const publicNavLinks = [
@@ -71,7 +98,13 @@ export default function Navbar() {
     { label: "Testimoni", href: "/#testimoni" },
   ];
 
-  const authNavLinks = [
+  // Khusus Akun Admin:
+  // Hapus tes kesiapsiagaan dan peta evakuasi, ganti dashboard dengan Panel Admin Verifikasi
+  const adminNavLinks = [
+    { label: "Panel Admin Verifikasi", href: "/admin" },
+  ];
+
+  const regularAuthNavLinks = [
     { label: "Dashboard", href: "/dashboard" },
     {
       label: isResultView ? "Hasil Kesiapanmu" : "Tes Kesiapsiagaan",
@@ -80,7 +113,20 @@ export default function Navbar() {
     { label: "Peta Evakuasi", href: "/map" },
   ];
 
+  const authNavLinks = isAdmin ? adminNavLinks : regularAuthNavLinks;
   const currentNavLinks = isAuthUser ? authNavLinks : publicNavLinks;
+
+  // Helper fungsi scroll ke paling atas sampai mentok
+  const scrollToTopMentok = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      document.documentElement.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      document.body.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      }, 250);
+    }
+  };
 
   // Fungsi penanganan navigasi smooth scroll ketika link ditekan
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -89,7 +135,7 @@ export default function Navbar() {
       if (pathname === "/") {
         e.preventDefault();
         if (href === "/" || href === "/#hero" || href === "#hero") {
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          scrollToTopMentok();
         } else {
           const targetId = href.replace(/^\/?#/, "");
           const el = document.getElementById(targetId);
@@ -98,11 +144,15 @@ export default function Navbar() {
           }
         }
       } else {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        scrollToTopMentok();
       }
     } else {
-      // Tombol navbar saat ditekan langsung scroll paling atas
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Tombol navbar saat ditekan langsung scroll paling atas sampai mentok
+      const linkBase = href.split("?")[0];
+      if (pathname === linkBase) {
+        e.preventDefault();
+      }
+      scrollToTopMentok();
     }
     if (mobileMenuOpen) {
       setMobileMenuOpen(false);
@@ -119,7 +169,7 @@ export default function Navbar() {
             if (pathname === "/") {
               e.preventDefault();
             }
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            scrollToTopMentok();
           }}
           className="flex items-center group py-1 z-10"
         >
@@ -138,6 +188,7 @@ export default function Navbar() {
               pathname === linkPath ||
               (linkPath === "/dashboard" &&
                 (pathname.startsWith("/ai") || pathname.startsWith("/settings"))) ||
+              (linkPath === "/admin" && pathname.startsWith("/admin")) ||
               (linkPath !== "/" && pathname.startsWith(linkPath));
 
             return (
@@ -223,68 +274,80 @@ export default function Navbar() {
                   </div>
 
                   <div className="py-1">
-                    <Link
-                      href="/dashboard"
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
-                    >
-                      <User className="w-3.5 h-3.5" />
-                      Dashboard Saya
-                    </Link>
-                    <Link
-                      href="/map"
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-[#0e6f68]" />
-                      Peta Evakuasi
-                    </Link>
+                    {isAdmin ? (
+                      <Link
+                        href="/admin"
+                        onClick={(e) => {
+                          setProfileDropdownOpen(false);
+                          if (pathname === "/admin") e.preventDefault();
+                          scrollToTopMentok();
+                        }}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#0e6f68] hover:bg-teal-50/60 transition cursor-pointer"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-[#0e6f68]" />
+                        Panel Admin Verifikasi
+                      </Link>
+                    ) : (
+                      <>
+                        <Link
+                          href="/dashboard"
+                          onClick={(e) => {
+                            setProfileDropdownOpen(false);
+                            if (pathname === "/dashboard") e.preventDefault();
+                            scrollToTopMentok();
+                          }}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition cursor-pointer"
+                        >
+                          <User className="w-3.5 h-3.5" />
+                          Dashboard Saya
+                        </Link>
+                        <Link
+                          href="/map"
+                          onClick={(e) => {
+                            setProfileDropdownOpen(false);
+                            if (pathname === "/map") e.preventDefault();
+                            scrollToTopMentok();
+                          }}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition cursor-pointer"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-[#0e6f68]" />
+                          Peta Evakuasi
+                        </Link>
+                      </>
+                    )}
                     <Link
                       href="/ai"
-                      onClick={() => {
+                      onClick={(e) => {
                         setProfileDropdownOpen(false);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        if (pathname === "/ai") e.preventDefault();
+                        scrollToTopMentok();
                       }}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                       Tanya Asisten AI
                     </Link>
                     <Link
                       href="/settings"
-                      onClick={() => {
+                      onClick={(e) => {
                         setProfileDropdownOpen(false);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        if (pathname === "/settings") e.preventDefault();
+                        scrollToTopMentok();
                       }}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition cursor-pointer"
                     >
                       <Settings className="w-3.5 h-3.5 text-[#0e6f68]" />
                       Pengaturan (Settings)
                     </Link>
-                    {user?.role === "ADMIN" && (
-                      <Link
-                        href="/admin"
-                        onClick={() => {
-                          setProfileDropdownOpen(false);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50 transition"
-                      >
-                        <Shield className="w-3.5 h-3.5" />
-                        Panel Admin Verifikasi
-                      </Link>
-                    )}
                   </div>
 
                   <div className="pt-1 border-t border-gray-100">
                     <button
-                      onClick={() => signOut({ callbackUrl: "/" })}
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        setLogoutModalOpen(true);
+                      }}
                       className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
@@ -401,8 +464,12 @@ export default function Navbar() {
           <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
             {isAuthUser ? (
               <button
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="w-full py-2.5 rounded-full bg-red-50 text-red-600 font-semibold text-sm flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setLogoutModalOpen(true);
+                }}
+                className="w-full py-2.5 rounded-full bg-red-50 hover:bg-red-100/80 text-red-600 font-semibold text-sm flex items-center justify-center gap-2 transition cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Keluar</span>
@@ -422,6 +489,44 @@ export default function Navbar() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: LOGOUT CONFIRMATION (TELEPORT KE DOCUMENT.BODY)   */}
+      {/* ======================================================== */}
+      {mounted && logoutModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-[28px] max-w-sm w-full p-6 sm:p-7 shadow-2xl border border-gray-100 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 mx-auto flex items-center justify-center">
+              <LogOut className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-gray-900">Keluar dari Akun?</h3>
+              <p className="text-xs sm:text-sm text-gray-500">
+                Apakah Anda yakin ingin keluar dari sesi akun Anda saat ini?
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setLogoutModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 w-full cursor-pointer transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="px-4 py-2.5 rounded-xl bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs sm:text-sm font-bold w-full shadow-xs cursor-pointer transition"
+              >
+                Ya, Keluar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </header>
   );

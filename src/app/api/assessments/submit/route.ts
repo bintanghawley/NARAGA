@@ -36,9 +36,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Komunitas tidak ditemukan" }, { status: 404 });
     }
 
-    // Ambil seluruh pertanyaan aktif
+    // Ambil seluruh pertanyaan aktif yang sesuai dengan peran pengguna (30 butir soal)
+    const targetRole = userRole === "PENGURUS" ? "PENGURUS" : "WARGA";
+
     const questions = await prisma.assessmentQuestion.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        targetRole,
+      },
       orderBy: { order: "asc" },
     });
 

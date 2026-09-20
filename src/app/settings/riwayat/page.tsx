@@ -35,6 +35,11 @@ export default async function RiwayatPage() {
     redirect("/login");
   }
 
+  // Khusus Akun Admin, alihkan ke Panel Admin Verifikasi
+  if (user.role === "ADMIN") {
+    redirect("/admin");
+  }
+
   // Format riwayat dari database
   let historyItems = (user.assessmentSessions || []).map((s) => {
     const dateObj = s.completedAt ? new Date(s.completedAt) : new Date();
@@ -65,46 +70,9 @@ export default async function RiwayatPage() {
     };
   });
 
-  // Jika database belum memiliki banyak riwayat, lengkapi dengan data riwayat percontohan sesuai desain Figma
-  if (historyItems.length === 0) {
-    historyItems = [
-      {
-        id: "demo-1",
-        date: "20 September 2026",
-        location: "Karanganyar Gunung",
-        score: 72,
-        status: "Cukup Siap",
-      },
-      {
-        id: "demo-2",
-        date: "20 September 2026",
-        location: "Karanganyar Gunung",
-        score: 72,
-        status: "Cukup Siap",
-      },
-      {
-        id: "demo-3",
-        date: "20 September 2026",
-        location: "Karanganyar Gunung",
-        score: 72,
-        status: "Cukup Siap",
-      },
-      {
-        id: "demo-4",
-        date: "20 September 2026",
-        location: "Karanganyar Gunung",
-        score: 72,
-        status: "Cukup Siap",
-      },
-    ];
-  }
-
   return (
     <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
-        {/* ======================================================== */}
-        {/* 1. SIDEBAR KIRI UTAMA (Floating White Card Sesuai Figma) */}
-        {/* ======================================================== */}
         {/* ======================================================== */}
         {/* 1. SIDEBAR KIRI UTAMA FIXED & SLIDING HIJAU               */}
         {/* ======================================================== */}
@@ -141,46 +109,70 @@ export default async function RiwayatPage() {
 
           {/* Kontainer Putih Besar Kartu Riwayat */}
           <div className="bg-white rounded-[28px] p-5 sm:p-7 lg:p-8 shadow-sm border border-gray-100 space-y-3.5">
-            {historyItems.map((item, idx) => (
-              <div
-                key={item.id}
-                style={{ animationDelay: `${idx * 70 + 80}ms` }}
-                className="p-4 sm:p-5 rounded-2xl border border-gray-200/80 bg-white hover:border-teal-200 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs group animate-emerge"
-              >
-                {/* Kolom Kiri: Tanggal & Lokasi Wilayah */}
-                <div className="space-y-1.5 sm:min-w-[240px]">
-                  <div className="flex items-center gap-2.5 text-sm sm:text-base font-bold text-gray-900">
-                    <Calendar className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                    <span>{item.date}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 font-medium">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                    <span>{item.location}</span>
-                  </div>
+            {historyItems.length === 0 ? (
+              <div className="text-center py-12 sm:py-16 space-y-3.5 animate-emerge">
+                <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-[#0e6f68] mx-auto">
+                  <RotateCcw className="w-7 h-7" />
                 </div>
-
-                {/* Kolom Tengah: Skor & Status Kesiapan */}
-                <div className="space-y-0.5 sm:min-w-[150px]">
-                  <div className="text-sm sm:text-base font-bold text-gray-900">
-                    {item.score}%
-                  </div>
-                  <div className="text-xs sm:text-sm font-bold text-gray-900">
-                    {item.status}
-                  </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+                    Belum Ada Riwayat Asesmen
+                  </h3>
+                  <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+                    Anda belum pernah mengisi tes kesiapsiagaan lingkungan. Mulai tes sekarang untuk mengetahui tingkat kesiapan dan rencana aksi mitigasi.
+                  </p>
                 </div>
-
-                {/* Kolom Kanan: Tombol Aksi Lihat Hasil */}
-                <div className="self-end sm:self-center">
+                <div className="pt-2">
                   <Link
-                    href={`/settings/riwayat/${item.id}`}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 hover:border-[#0e6f68] hover:bg-teal-50/50 hover:text-[#0e6f68] text-xs sm:text-sm font-semibold text-gray-700 transition shadow-2xs group-hover:border-teal-300"
+                    href="/assessment"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs sm:text-sm font-semibold transition shadow-xs cursor-pointer"
                   >
-                    <span>Lihat Hasil</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-[#0e6f68] transition" />
+                    <span>Mulai Tes Sekarang</span>
                   </Link>
                 </div>
               </div>
-            ))}
+            ) : (
+              historyItems.map((item, idx) => (
+                <div
+                  key={item.id}
+                  style={{ animationDelay: `${idx * 70 + 80}ms` }}
+                  className="p-4 sm:p-5 rounded-2xl border border-gray-200/80 bg-white hover:border-teal-200 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs group animate-emerge"
+                >
+                  {/* Kolom Kiri: Tanggal & Lokasi Wilayah */}
+                  <div className="space-y-1.5 sm:min-w-[240px]">
+                    <div className="flex items-center gap-2.5 text-sm sm:text-base font-bold text-gray-900">
+                      <Calendar className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                      <span>{item.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 font-medium">
+                      <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                      <span>{item.location}</span>
+                    </div>
+                  </div>
+
+                  {/* Kolom Tengah: Skor & Status Kesiapan */}
+                  <div className="space-y-0.5 sm:min-w-[150px]">
+                    <div className="text-sm sm:text-base font-bold text-gray-900">
+                      {item.score}%
+                    </div>
+                    <div className="text-xs sm:text-sm font-bold text-gray-900">
+                      {item.status}
+                    </div>
+                  </div>
+
+                  {/* Kolom Kanan: Tombol Aksi Lihat Hasil */}
+                  <div className="self-end sm:self-center">
+                    <Link
+                      href={`/settings/riwayat/${item.id}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 hover:border-[#0e6f68] hover:bg-teal-50/50 hover:text-[#0e6f68] text-xs sm:text-sm font-semibold text-gray-700 transition shadow-2xs group-hover:border-teal-300"
+                    >
+                      <span>Lihat Hasil</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-[#0e6f68] transition" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </main>
       </div>

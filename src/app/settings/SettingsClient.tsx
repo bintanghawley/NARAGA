@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import {
@@ -100,16 +101,32 @@ export default function SettingsClient({
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // Role-based default avatars: Admin=evan, Pengurus=raffi, Warga=firman
+  const getRoleDefaultAvatar = (role?: string) => {
+    switch (role) {
+      case "ADMIN": return "/images/avatar-evan.jpg";
+      case "PENGURUS": return "/images/avatar-raffi.jpg";
+      case "WARGA": return "/images/avatar-firman.jpg";
+      default: return "/images/avatar-evan.jpg";
+    }
+  };
+
   // Avatar state & file input refs
-  const [avatarUrl, setAvatarUrl] = useState<string>("/images/avatar-evan.jpg");
+  const [avatarUrl, setAvatarUrl] = useState<string>(getRoleDefaultAvatar(initialUser.role));
   const directFileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("naraga_user_avatar");
       if (saved) {
         setAvatarUrl(saved);
+      } else {
+        // Set role-based default avatar if no custom avatar saved
+        setAvatarUrl(getRoleDefaultAvatar(initialUser.role));
       }
     }
   }, []);
@@ -121,7 +138,7 @@ export default function SettingsClient({
     name: initialParsed.nameOnly,
     roleTitle: initialParsed.roleTitle,
     email: initialUser.email,
-    avatar: "/images/avatar-evan.jpg",
+    avatar: getRoleDefaultAvatar(initialUser.role),
   });
   const [selectedCommunityId, setSelectedCommunityId] = useState(
     initialUser.communityId || (communities[0]?.id ?? "")
@@ -391,7 +408,7 @@ export default function SettingsClient({
                     className="absolute left-0 right-0 h-[44px] rounded-xl bg-[#0e6f68] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none shadow-xs z-0"
                     style={{
                       transform: `translateY(${
-                        (activeSubTab === "profil" ? 0 : activeSubTab === "privasi" ? 1 : 2) * 48
+                        (activeSubTab === "profil" ? 0 : currentUser.role === "ADMIN" ? 1 : activeSubTab === "privasi" ? 1 : 2) * 48
                       }px)`,
                     }}
                   />
@@ -414,23 +431,25 @@ export default function SettingsClient({
                     <span>Profil</span>
                   </button>
 
-                  {/* Tab 2: Privasi & Data */}
-                  <button
-                    type="button"
-                    onClick={() => handleTabClick("privasi")}
-                    className={`relative z-10 w-full h-[44px] flex items-center gap-3 px-4 rounded-xl font-medium text-sm transition-colors duration-200 cursor-pointer text-left ${
-                      activeSubTab === "privasi"
-                        ? "text-white font-semibold"
-                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50/50"
-                    }`}
-                  >
-                    <Shield
-                      className={`w-4 h-4 transition-colors ${
-                        activeSubTab === "privasi" ? "text-white" : "text-gray-500"
+                  {/* Tab 2: Privasi & Data (Hanya untuk Warga / Pengurus) */}
+                  {currentUser.role !== "ADMIN" && (
+                    <button
+                      type="button"
+                      onClick={() => handleTabClick("privasi")}
+                      className={`relative z-10 w-full h-[44px] flex items-center gap-3 px-4 rounded-xl font-medium text-sm transition-colors duration-200 cursor-pointer text-left ${
+                        activeSubTab === "privasi"
+                          ? "text-white font-semibold"
+                          : "text-gray-700 hover:text-gray-900 hover:bg-gray-50/50"
                       }`}
-                    />
-                    <span>Privasi & Data</span>
-                  </button>
+                    >
+                      <Shield
+                        className={`w-4 h-4 transition-colors ${
+                          activeSubTab === "privasi" ? "text-white" : "text-gray-500"
+                        }`}
+                      />
+                      <span>Privasi & Data</span>
+                    </button>
+                  )}
 
                   {/* Tab 3: Akun & Keamanan */}
                   <button
@@ -570,39 +589,41 @@ export default function SettingsClient({
               </section>
 
               {/* =================================================== */}
-              {/* SEKSI 2: PRIVASI & DATA                            */}
+              {/* SEKSI 2: PRIVASI & DATA (Hanya Warga & Pengurus)   */}
               {/* =================================================== */}
-              <section id="section-privasi" className="space-y-3 scroll-mt-24 animate-emerge stagger-2">
-                <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-                  Privasi & Data
-                </h2>
+              {currentUser.role !== "ADMIN" && (
+                <section id="section-privasi" className="space-y-3 scroll-mt-24 animate-emerge stagger-2">
+                  <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+                    Privasi & Data
+                  </h2>
 
-                <div className="bg-white rounded-[24px] p-4 sm:p-5 shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center text-[#0e6f68]">
-                        <RotateCcw className="w-4 h-4" />
+                  <div className="bg-white rounded-[24px] p-4 sm:p-5 shadow-sm border border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center text-[#0e6f68]">
+                          <RotateCcw className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-gray-900">
+                            Riwayat
+                          </span>
+                          <p className="text-xs text-gray-500">
+                            Catatan asesmen kesiapsiagaan lingkungan yang telah selesai
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-sm font-semibold text-gray-900">
-                          Riwayat
-                        </span>
-                        <p className="text-xs text-gray-500">
-                          Catatan asesmen kesiapsiagaan lingkungan yang telah selesai
-                        </p>
-                      </div>
+
+                      <Link
+                        href="/settings/riwayat"
+                        className="w-10 h-8 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition cursor-pointer shadow-2xs"
+                        title="Buka Halaman Riwayat"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
                     </div>
-
-                    <Link
-                      href="/settings/riwayat"
-                      className="w-10 h-8 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition cursor-pointer shadow-2xs"
-                      title="Buka Halaman Riwayat"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Link>
                   </div>
-                </div>
-              </section>
+                </section>
+              )}
 
               {/* =================================================== */}
               {/* SEKSI 3: AKUN & KEAMANAN                           */}
@@ -690,9 +711,9 @@ export default function SettingsClient({
       {/* ======================================================== */}
       {/* MODAL 1: EDIT PROFIL (PISAH NAMA & PERAN + GANTI FOTO)   */}
       {/* ======================================================== */}
-      {editProfileOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-4">
+      {mounted && editProfileOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-[28px] max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">Ubah Data Profil</h3>
               <button
@@ -775,7 +796,7 @@ export default function SettingsClient({
                 </div>
               </div>
 
-              {/* Input 1: Nama Lengkap (Nama Sendiri) */}
+              {/* Input 1: Nama Lengkap */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Nama Lengkap
@@ -787,12 +808,11 @@ export default function SettingsClient({
                   onChange={(e) =>
                     setProfileForm({ ...profileForm, name: e.target.value })
                   }
-                  placeholder="Contoh: Bambang Sudarsono"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e6f68] focus:border-transparent"
                 />
               </div>
 
-              {/* Input 2: Peran / Jabatan di Lingkungan (Perannya Sendiri) */}
+              {/* Input 2: Peran / Jabatan */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center justify-between">
                   <span>Peran / Jabatan di Lingkungan</span>
@@ -846,15 +866,16 @@ export default function SettingsClient({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* MODAL 2: EDIT ALAMAT WILAYAH                             */}
       {/* ======================================================== */}
-      {editCommunityOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-[24px] max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-4">
+      {mounted && editCommunityOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-[28px] max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
                 <Building className="w-5 h-5 text-[#0e6f68]" />
@@ -894,21 +915,34 @@ export default function SettingsClient({
                           : "border-gray-200 hover:bg-gray-50 text-gray-700"
                       }`}
                     >
-                      <div>
-                        <p className="text-xs font-bold text-gray-900">{comm.name}</p>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-900">
+                            {comm.name}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-white border border-gray-200 font-semibold text-[#0e6f68]">
+                            RT {comm.rt} / RW {comm.rw}
+                          </span>
+                        </div>
                         <p className="text-[11px] text-gray-500">
-                          RT {comm.rt} / RW {comm.rw}, Kel. {comm.kelurahan}, {comm.kota}
+                          Kel. {comm.kelurahan}, Kec. {comm.kecamatan}, {comm.kota}
                         </p>
                       </div>
-                      {isSelected && (
-                        <Check className="w-4 h-4 text-[#0e6f68] flex-shrink-0" />
-                      )}
+                      <div
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                          isSelected
+                            ? "border-[#0e6f68] bg-[#0e6f68] text-white"
+                            : "border-gray-300"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3" />}
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setEditCommunityOpen(false)}
@@ -926,15 +960,16 @@ export default function SettingsClient({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* MODAL 5: EDIT PASSWORD                                   */}
       {/* ======================================================== */}
-      {passwordOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-4">
+      {mounted && passwordOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-[28px] max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-5 h-5 text-[#0e6f68]" />
@@ -984,7 +1019,10 @@ export default function SettingsClient({
                   placeholder="Minimal 6 karakter"
                   value={passwordForm.newPassword}
                   onChange={(e) =>
-                    setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+                    setPasswordForm({
+                      ...passwordForm,
+                      newPassword: e.target.value,
+                    })
                   }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e6f68] focus:border-transparent"
                 />
@@ -1009,7 +1047,7 @@ export default function SettingsClient({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setPasswordOpen(false)}
@@ -1027,88 +1065,95 @@ export default function SettingsClient({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* MODAL 6: LOGOUT CONFIRMATION                             */}
       {/* ======================================================== */}
-      {logoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-[24px] max-w-sm w-full p-6 shadow-2xl border border-gray-100 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-teal-50 text-[#0e6f68] mx-auto flex items-center justify-center">
-              <LogOut className="w-6 h-6" />
+      {mounted && logoutOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-[28px] max-w-sm w-full p-6 sm:p-7 shadow-2xl border border-gray-100 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 mx-auto flex items-center justify-center">
+              <LogOut className="w-7 h-7" />
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-gray-900">Keluar dari Akun?</h3>
-              <p className="text-xs text-gray-500">
+              <h3 className="text-xl font-bold text-gray-900">Keluar dari Akun?</h3>
+              <p className="text-xs sm:text-sm text-gray-500">
                 Apakah Anda yakin ingin keluar dari sesi akun Anda saat ini?
               </p>
             </div>
 
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
+                type="button"
                 onClick={() => setLogoutOpen(false)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 w-full"
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 w-full cursor-pointer transition"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={() => signOut({ callbackUrl: "/" })}
-                className="px-4 py-2 rounded-xl bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-bold w-full shadow-xs"
+                className="px-4 py-2.5 rounded-xl bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs sm:text-sm font-bold w-full shadow-xs cursor-pointer transition"
               >
                 Ya, Keluar
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* MODAL 7: HAPUS AKUN CONFIRMATION                         */}
       {/* ======================================================== */}
-      {deleteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl border border-red-100 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 mx-auto flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6" />
+      {mounted && deleteOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-[28px] max-w-md w-full p-6 sm:p-7 shadow-2xl border border-red-100 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 mx-auto flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7" />
             </div>
 
             <div className="space-y-1.5">
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-xl font-bold text-gray-900">
                 Hapus Akun Permanen?
               </h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
+              <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
                 Tindakan ini tidak dapat dibatalkan. Seluruh riwayat asesmen dan data partisipasi warga Anda di lingkungan ini akan dinonaktifkan secara permanen.
               </p>
             </div>
 
-            <div className="p-3 bg-red-50 rounded-xl text-left border border-red-100">
-              <p className="text-[11px] font-medium text-red-700">
+            <div className="p-3.5 bg-red-50 rounded-2xl text-left border border-red-100">
+              <p className="text-xs font-medium text-red-700 leading-relaxed">
                 ⚠️ Untuk perlindungan keamanan data, silakan hubungi pengurus RT/RW atau administrator jika Anda ingin menghapus seluruh data kependudukan lingkungan secara menyeluruh.
               </p>
             </div>
 
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
+                type="button"
                 onClick={() => setDeleteOpen(false)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 w-full"
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 w-full cursor-pointer transition"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setDeleteOpen(false);
                   showToast("Permintaan penghapusan akun telah dicatat oleh sistem keamanan.");
                 }}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold w-full shadow-xs"
+                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold w-full shadow-xs cursor-pointer transition"
               >
                 Konfirmasi Hapus
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
