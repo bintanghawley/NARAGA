@@ -111,7 +111,7 @@ export default function Navbar() {
           <img
             src="/images/naraga-logo.png"
             alt="NARAGA"
-            className="h-8 sm:h-9 w-auto object-contain transition group-hover:opacity-90"
+            className="h-[26px] sm:h-7 w-auto object-contain transition group-hover:opacity-90"
           />
         </Link>
 

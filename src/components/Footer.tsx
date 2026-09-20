@@ -102,10 +102,12 @@ export default function Footer({ showCtaBanner = true }: { showCtaBanner?: boole
           <div className="flex flex-col md:flex-row justify-between items-start gap-10 lg:gap-16">
             {/* Kolom Kiri: Logo + Deskripsi + Copyright */}
             <div className="max-w-md space-y-3.5 text-left">
-              <Link href="/" className="inline-block group">
-                <span className="text-2xl sm:text-3xl font-black tracking-tight text-white group-hover:opacity-95 transition">
-                  NARAGA<span className="text-[#84f0dc]">.</span>
-                </span>
+              <Link href="/" className="inline-block group py-1">
+                <img
+                  src="/images/naraga-logo-white.png?v=2"
+                  alt="NARAGA"
+                  className="h-[26px] sm:h-7 w-auto object-contain transition group-hover:opacity-90"
+                />
               </Link>
               <p className="text-xs sm:text-sm text-teal-100/90 leading-relaxed max-w-sm font-normal">
                 Platform untuk membantu masyarakat mengenali dan meningkatkan kesiapsiagaan lingkungan.

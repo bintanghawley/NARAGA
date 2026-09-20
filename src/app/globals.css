@@ -101,12 +101,75 @@ body {
   animation: blinkCursor 0.9s infinite;
 }
 
-.animate-float-soft {
-  animation: floatSoft 4s ease-in-out infinite;
+@keyframes fadeInSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.animate-pulse-glow {
-  animation: pulseGlow 6s ease-in-out infinite;
+@keyframes fadeInSlideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(1.5deg);
+  }
+}
+
+@keyframes floatGentleReverse {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(10px) rotate(-1.5deg);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in-down {
+  animation: fadeInSlideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-card-entrance {
+  animation: cardEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-float-gentle {
+  animation: floatGentle 7s ease-in-out infinite;
+}
+
+.animate-float-gentle-reverse {
+  animation: floatGentleReverse 9s ease-in-out infinite;
 }
 
 
