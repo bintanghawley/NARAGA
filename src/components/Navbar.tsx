@@ -14,6 +14,8 @@ export default function Navbar() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [isResultView, setIsResultView] = useState(false);
+
   // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -24,14 +26,6 @@ export default function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Sembunyikan navbar pada halaman autentikasi (login & register)
-  if (pathname === "/login" || pathname === "/register") {
-    return null;
-  }
-
-  const isAuthUser = !!session;
-  const [isResultView, setIsResultView] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -45,13 +39,19 @@ export default function Navbar() {
     }
   }, [pathname]);
 
+  // Sembunyikan navbar pada halaman autentikasi (login & register)
+  if (pathname === "/login" || pathname === "/register") {
+    return null;
+  }
+
+  const isAuthUser = !!session;
+
   // Nav links untuk user yang sedang login vs pengunjung umum
   const publicNavLinks = [
     { label: "Tes Kesiapsiagaan", href: "/" },
     { label: "Proses", href: "/#proses" },
     { label: "Hasil", href: "/#hasil" },
     { label: "Testimoni", href: "/#testimoni" },
-    { label: "Peta Evakuasi", href: "/map" },
   ];
 
   const authNavLinks = [
@@ -60,22 +60,62 @@ export default function Navbar() {
       label: isResultView ? "Hasil Kesiapanmu" : "Tes Kesiapsiagaan",
       href: isResultView ? "/assessment?view=result" : "/assessment",
     },
-    { label: "Peta Evakuasi", href: "/map" },
   ];
 
   const currentNavLinks = isAuthUser ? authNavLinks : publicNavLinks;
 
+  // Fungsi penanganan navigasi smooth scroll ketika link ditekan
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    // Jika link mengarah ke anchor section atau home pada landing page
+    if (href.startsWith("/#") || href === "/" || href.startsWith("#")) {
+      if (pathname === "/") {
+        e.preventDefault();
+        if (href === "/" || href === "/#hero" || href === "#hero") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          const targetId = href.replace(/^\/?#/, "");
+          const el = document.getElementById(targetId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth" });
+          }
+        }
+        if (mobileMenuOpen) {
+          setMobileMenuOpen(false);
+        }
+      } else {
+        if (mobileMenuOpen) {
+          setMobileMenuOpen(false);
+        }
+      }
+    } else {
+      if (mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    }
+  };
+
   return (
     <header className="bg-white/95 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        {/* 1. Brand Logo (Kiri) */}
-        <Link href="/" className="flex items-center gap-0.5 group">
-          <span className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e6f68] group-hover:opacity-95 transition">
-            NARAGA<span className="text-[#14b8a6]">.</span>
-          </span>
+        {/* 1. Brand Logo (Kiri) - Smooth scroll ke atas jika di home */}
+        <Link
+          href="/"
+          onClick={(e) => {
+            if (pathname === "/") {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+          className="flex items-center group py-1"
+        >
+          <img
+            src="/images/naraga-logo.png"
+            alt="NARAGA"
+            className="h-8 sm:h-9 w-auto object-contain transition group-hover:opacity-90"
+          />
         </Link>
 
-        {/* 2. Center Navigation Links (Tengah - Sesuai Figma) */}
+        {/* 2. Center Navigation Links (Tengah - Sesuai Figma & Smooth Scroll) */}
         <nav className="hidden md:flex items-center gap-8 lg:gap-10 text-sm">
           {currentNavLinks.map((link) => {
             const linkPath = link.href.split("?")[0];
@@ -89,7 +129,8 @@ export default function Navbar() {
               <Link
                 key={link.label}
                 href={link.href}
-                className={`py-1.5 transition-all text-sm ${
+                onClick={(e) => handleNavClick(e, link.href)}
+                className={`py-1.5 transition-all text-sm cursor-pointer ${
                   isActive && isAuthUser
                     ? "text-gray-900 font-bold border-b-[3px] border-[#0e6f68] pb-1"
                     : "text-gray-600 hover:text-[#0e6f68] font-medium"
@@ -204,7 +245,7 @@ export default function Navbar() {
                 Masuk
               </Link>
               <Link
-                href="/assessment"
+                href="/login?callbackUrl=/assessment"
                 className="inline-flex items-center gap-2 px-6 lg:px-7 py-2 rounded-full bg-[#0e6f68] hover:bg-[#0a524d] text-white font-semibold text-sm shadow-sm hover:shadow transition transform active:scale-[0.98]"
               >
                 <span>Mulai Tes</span>
@@ -264,8 +305,8 @@ export default function Navbar() {
               <Link
                 key={link.label}
                 href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:text-[#0e6f68] hover:bg-teal-50 transition"
+                onClick={(e) => handleNavClick(e, link.href)}
+                className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:text-[#0e6f68] hover:bg-teal-50 transition cursor-pointer"
               >
                 {link.label}
               </Link>
@@ -282,7 +323,7 @@ export default function Navbar() {
               </button>
             ) : (
               <Link
-                href="/assessment"
+                href="/login?callbackUrl=/assessment"
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full py-2.5 rounded-full bg-[#0e6f68] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
               >

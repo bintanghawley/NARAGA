@@ -30,8 +30,15 @@ interface Community {
 }
 
 export default function AssessmentPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/assessment");
+    }
+  }, [status, router]);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);

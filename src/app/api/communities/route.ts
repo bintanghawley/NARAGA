@@ -3,7 +3,8 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createCommunitySchema } from "@/validators";
 
-// GET /api/communities: Ambil daftar komunitas resmi yang tersedia
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const communities = await prisma.community.findMany({

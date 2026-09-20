@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   MapPin,
@@ -50,8 +51,16 @@ interface EmergencyContact {
 }
 
 export default function MapPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const user = session?.user as any;
+
+  // Proteksi rute peta: hanya untuk user yang sudah login
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/map");
+    }
+  }, [status, router]);
 
   const [points, setPoints] = useState<EvacuationPoint[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
@@ -367,6 +376,21 @@ export default function MapPage() {
     : contacts.length > 0
     ? contacts
     : defaultContacts;
+
+  if (status === "loading" || status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-[#ebf4fa] flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <div className="w-9 h-9 border-3 border-[#0e6f68] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm font-semibold text-gray-600">
+            {status === "unauthenticated"
+              ? "Mengarahkan ke halaman login..."
+              : "Memuat peta evakuasi..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
