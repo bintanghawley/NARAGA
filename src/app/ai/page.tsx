@@ -2,30 +2,21 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
-  Compass,
   Bot,
-  Settings,
-  Sparkles,
   ArrowRight,
   Copy,
   Check,
-  MapPin,
-  X,
 } from "lucide-react";
 import {
   detectUserLocation,
   hasLocationPermission,
   saveLocationPermission,
-  saveManualLocation,
   UserLocation,
   SIDOARJO_PRESET,
-  LOCATION_PRESETS,
-  getHighAccuracyGPSPosition,
 } from "@/lib/location";
-import LocationPickerModal from "@/components/LocationPickerModal";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import DashboardSidebar from "@/components/DashboardSidebar";
 
 interface Message {
   id: string;
@@ -57,15 +48,13 @@ function AIChatContent() {
       id: "intro-1",
       role: "assistant",
       content:
-        "Halo! Saya adalah NARAGA.AI . Saya siap membantu Anda menganalisis kesenjangan kesiapsiagaan lingkungan, menyusun rencana aksi mitigasi, dan panduan evakuasi praktis.",
+        "Halo! Saya adalah **NARAGA.AI**. Saya siap membantu Anda menganalisis kesenjangan kesiapsiagaan lingkungan, menyusun rencana aksi mitigasi bencana, panduan evakuasi, serta mendiskusikan topik ketahanan terkait seperti adaptasi perubahan iklim, sanitasi pasca-bencana, penanganan trauma, hingga keamanan keluarga.",
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [locLoading, setLocLoading] = useState(false);
-  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -81,7 +70,7 @@ function AIChatContent() {
     }
   };
 
-  // Deteksi lokasi pengguna & dengarkan perubahan lokasi dari halaman peta
+  // Deteksi lokasi pengguna & dengarkan perubahan lokasi dari halaman peta untuk grounding AI
   useEffect(() => {
     if (hasLocationPermission()) {
       detectUserLocation().then((loc) => setUserLocation(loc));
@@ -97,31 +86,6 @@ function AIChatContent() {
     window.addEventListener("naraga_location_changed", handleLocChange);
     return () => window.removeEventListener("naraga_location_changed", handleLocChange);
   }, []);
-
-  const handleAllowLocation = async () => {
-    setLocLoading(true);
-    try {
-      saveLocationPermission(true);
-      const loc = await getHighAccuracyGPSPosition();
-      setUserLocation(loc);
-    } catch (e) {
-      console.warn("GPS direct gagal, coba fallback:", e);
-      try {
-        const loc = await detectUserLocation(true);
-        setUserLocation(loc);
-      } catch (err2) {
-        console.error("Gagal mendeteksi lokasi:", err2);
-      }
-    } finally {
-      setLocLoading(false);
-    }
-  };
-
-  const handleSelectPreset = (preset: UserLocation) => {
-    saveManualLocation(preset);
-    setUserLocation(preset);
-    setShowLocationModal(false);
-  };
 
   // Measure initial compact height on mount, or set expanded height if already chatted
   useEffect(() => {
@@ -202,8 +166,11 @@ function AIChatContent() {
     ) {
       try {
         saveLocationPermission(true);
-        locToSend = await detectUserLocation(true);
-        setUserLocation(locToSend);
+        locToSend = await Promise.race([
+          detectUserLocation(false),
+          new Promise<UserLocation>((_, reject) => setTimeout(() => reject("timeout"), 600)),
+        ]).catch(() => SIDOARJO_PRESET);
+        if (locToSend) setUserLocation(locToSend);
       } catch {}
     }
 
@@ -254,129 +221,24 @@ function AIChatContent() {
     }
   };
 
-  const isSidoarjo = userLocation?.city?.toLowerCase().includes("sidoarjo");
-
-  const samplePrompts = [
-    isSidoarjo
-      ? "Di mana lokasi saya saat ini dan apa potensi risikonya di Sidoarjo?"
-      : "Di mana lokasi saya saat ini dan apa potensi risikonya?",
-    "Apa saja prioritas perbaikan berdasarkan asesmen lingkungan saya?",
-    isSidoarjo
-      ? "Bagaimana panduan evakuasi menuju titik kumpul aman di Sidoarjo?"
-      : "Bagaimana menentukan titik kumpul aman yang ideal?",
-  ];
 
   return (
-    <div className="min-h-screen bg-[#ebf4fa] py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
         {/* ======================================================== */}
-        {/* 1. SIDEBAR KIRI (Floating White Card Sesuai Desain Figma) */}
+        {/* 1. SIDEBAR KIRI FIXED & ANIMASI SLIDING HIJAU             */}
         {/* ======================================================== */}
-        <aside className="w-full lg:w-64 bg-white rounded-[28px] p-4 shadow-sm border border-gray-100 flex-shrink-0 space-y-2">
-          {/* Menu 1: Overview (Inactive) */}
-          <Link
-            href="/dashboard"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Compass className="w-5 h-5" />
-            </div>
-            <span>Overview</span>
-          </Link>
-
-          {/* Menu 2: Tanya AI ✨ (Active - Deep Teal Pill) */}
-          <Link
-            href="/ai"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[#0e6f68] text-white font-semibold text-sm shadow-xs transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
-            </div>
-            <span className="flex items-center gap-1.5">
-              Tanya AI <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            </span>
-          </Link>
-
-          {/* Menu 3: Settings (Inactive) */}
-          <Link
-            href="/settings"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Settings className="w-5 h-5" />
-            </div>
-            <span>Settings</span>
-          </Link>
-        </aside>
+        <DashboardSidebar />
 
         {/* ======================================================== */}
         {/* 2. KONTEN UTAMA KANAN (Talk With NARAGA.AI)               */}
         {/* ======================================================== */}
         <main className="flex-1 w-full space-y-5">
           {/* Header Title & Subtitle */}
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
-                Talk With NARAGA.AI
-              </h1>
-              {userLocation ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-200/70 text-[#0e6f68] text-xs font-semibold shadow-2xs animate-in fade-in">
-                    <MapPin className="w-3.5 h-3.5 text-[#0e6f68]" />
-                    <span>
-                      Lokasi:{" "}
-                      <strong>
-                        {userLocation.road ? `${userLocation.road}, ` : ""}
-                        {userLocation.village ? `Desa ${userLocation.village}, ` : ""}
-                        {userLocation.district ? `Kec. ${userLocation.district}, ` : ""}
-                        {userLocation.city}
-                      </strong>
-                    </span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse ml-0.5" />
-                  </div>
-
-                  {!userLocation.city.toLowerCase().includes("sidoarjo") && (
-                    <button
-                      type="button"
-                      onClick={() => handleSelectPreset(SIDOARJO_PRESET)}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-2xs transition cursor-pointer"
-                      title="Koreksi lokasi ke Kabupaten Sidoarjo, Jawa Timur"
-                    >
-                      <span>🎯 Tetapkan ke Sidoarjo</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setShowLocationModal(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-medium shadow-2xs transition cursor-pointer"
-                    title="Ubah atau pilih lokasi lain"
-                  >
-                    <span>Ubah</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPreset(SIDOARJO_PRESET)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-semibold shadow-2xs transition cursor-pointer"
-                  >
-                    <span>🎯 Pilih Sidoarjo, Jatim</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAllowLocation}
-                    disabled={locLoading}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-teal-50 border border-teal-200/80 text-[#0e6f68] text-xs font-semibold shadow-2xs transition cursor-pointer disabled:opacity-60"
-                    title="Izinkan NARAGA mendeteksi lokasi wilayah berdasarkan GPS/IP koneksi Anda"
-                  >
-                    <MapPin className="w-3.5 h-3.5 text-[#0e6f68]" />
-                    <span>{locLoading ? "Mendeteksi..." : "Deteksi GPS"}</span>
-                  </button>
-                </div>
-              )}
-            </div>
+          <div className="space-y-1.5 animate-emerge">
+            <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
+              Talk With NARAGA.AI
+            </h1>
             <p className="text-sm sm:text-base font-bold text-gray-900 max-w-3xl leading-relaxed">
               Ceritakan kondisi lingkunganmu dan dapatkan penjelasan serta saran berdasarkan hasil kesiapsiagaanmu.
             </p>
@@ -472,21 +334,8 @@ function AIChatContent() {
               )}
             </div>
 
-            {/* Bottom Inner Box: Suggestion Pills + Input Field (Sesuai Desain Figma) */}
-            <div className="flex-shrink-0 border border-gray-200/90 rounded-2xl p-2.5 sm:p-3 bg-white space-y-2.5 mt-4">
-              {/* Suggestion Prompt Pills */}
-              <div className="flex flex-wrap items-center gap-2 pb-2.5 border-b border-gray-100/90">
-                {samplePrompts.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSend(prompt)}
-                    className="bg-gray-100/90 hover:bg-gray-200 text-gray-700 text-xs px-3.5 py-1.5 rounded-full transition cursor-pointer font-normal text-left"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
+            {/* Bottom Inner Box: Input Field (Sesuai Desain Figma NARAGA) */}
+            <div className="flex-shrink-0 border border-gray-200/90 rounded-2xl p-2 sm:p-2.5 bg-white mt-4 shadow-2xs">
 
               {/* Input Form Row */}
               <form
@@ -500,8 +349,8 @@ function AIChatContent() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Tanyakan langkah kesiapsiagaan atau solusi kesenjangan ..."
-                  className="flex-1 text-xs sm:text-sm text-gray-800 placeholder-gray-400 bg-transparent focus:outline-none py-1"
+                  placeholder="Tanyakan kesiapsiagaan bencana, mitigasi risiko, perubahan iklim, atau sanitasi..."
+                  className="flex-1 text-xs sm:text-sm text-gray-800 placeholder-gray-400 bg-transparent focus:outline-none py-1.5"
                 />
                 <button
                   type="submit"
@@ -517,15 +366,7 @@ function AIChatContent() {
         </main>
       </div>
 
-      {/* Modal Dialog Lengkap Pemilihan Lokasi Seluruh Indonesia */}
-      <LocationPickerModal
-        isOpen={showLocationModal}
-        onClose={() => setShowLocationModal(false)}
-        onSelectLocation={handleSelectPreset}
-        currentLocation={userLocation}
-        onDetectGPS={handleAllowLocation}
-        isDetectingGPS={locLoading}
-      />
+
     </div>
   );
 }

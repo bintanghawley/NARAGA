@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   MapPin,
-  Phone,
   Plus,
   X,
+  RotateCcw,
+  Check,
+  Lock,
 } from "lucide-react";
 import {
   detectUserLocation,
@@ -42,14 +44,6 @@ interface EvacuationPoint {
   longitude: number;
 }
 
-interface EmergencyContact {
-  id: string;
-  name: string;
-  category: string;
-  phoneNumber: string;
-  isGlobal?: boolean;
-}
-
 export default function MapPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -64,11 +58,11 @@ export default function MapPage() {
 
   const [points, setPoints] = useState<EvacuationPoint[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
-  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locLoading, setLocLoading] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [pinpointToast, setPinpointToast] = useState("");
 
   // Form Tambah Titik (Khusus Pengurus & Admin)
   const [showAddPoint, setShowAddPoint] = useState(false);
@@ -82,19 +76,16 @@ export default function MapPage() {
 
   const fetchData = async () => {
     try {
-      const [pRes, rRes, cRes] = await Promise.all([
+      const [pRes, rRes] = await Promise.all([
         fetch("/api/evacuation-points"),
         fetch("/api/evacuation-routes"),
-        fetch("/api/emergency-contacts"),
       ]);
 
       const pData = await pRes.json();
       const rData = await rRes.json();
-      const cData = await cRes.json();
 
       setPoints(pData.points || []);
       setRoutes(rData.routes || []);
-      setContacts(cData.contacts || []);
     } catch (e) {
       console.error("Gagal mengambil data peta", e);
     } finally {
@@ -130,14 +121,16 @@ export default function MapPage() {
     setLocLoading(true);
     try {
       saveLocationPermission(true);
-      const loc = await getHighAccuracyGPSPosition();
+      const loc = await getHighAccuracyGPSPosition(10000, true);
       setUserLocation(loc);
       setPointLat(loc.latitude.toString());
       setPointLng(loc.longitude.toString());
+      setPinpointToast("📍 Lokasi laptop berhasil terdeteksi dan dikunci stabil!");
+      setTimeout(() => setPinpointToast(""), 3500);
     } catch (e) {
-      console.warn("GPS direct gagal, coba fallback:", e);
+      console.warn("Deteksi sensor gagal, beralih ke titik stabil:", e);
       try {
-        const loc = await detectUserLocation(true);
+        const loc = await detectUserLocation(false);
         setUserLocation(loc);
         setPointLat(loc.latitude.toString());
         setPointLng(loc.longitude.toString());
@@ -163,14 +156,17 @@ export default function MapPage() {
       longitude: lng,
       displayName: rev.displayName,
       accuracy: 5, // Presisi klik/drag manual ~5m
-      isp: "Pinpoint Interaktif Peta",
+      isp: "Pinpoint Presisi Terkunci",
       source: "manual",
+      isLocked: true,
     };
 
     saveManualLocation(updatedLoc);
     setUserLocation(updatedLoc);
     setPointLat(lat.toFixed(6));
     setPointLng(lng.toFixed(6));
+    setPinpointToast("📍 Titik lokasi berhasil disesuaikan & dikunci 100% presisi!");
+    setTimeout(() => setPinpointToast(""), 3500);
   };
 
   const handleSelectPreset = (preset: UserLocation) => {
@@ -267,37 +263,6 @@ export default function MapPage() {
     },
   ];
 
-  const sidoarjoContacts: EmergencyContact[] = [
-    {
-      id: "c-sda-1",
-      name: "BPBD Kabupaten Sidoarjo (Pusdalops PB)",
-      category: "BPBD",
-      phoneNumber: "031-8953200",
-      isGlobal: true,
-    },
-    {
-      id: "c-sda-2",
-      name: "Dinas Pemadam Kebakaran & Penyelamatan Kab. Sidoarjo",
-      category: "DAMKAR",
-      phoneNumber: "031-8962100",
-      isGlobal: true,
-    },
-    {
-      id: "c-sda-3",
-      name: "Call Center Kedaruratan Terpadu Sidoarjo (Bebas Pulsa)",
-      category: "KEPOLISIAN",
-      phoneNumber: "112",
-      isGlobal: true,
-    },
-    {
-      id: "c-sda-4",
-      name: "IGD RSUD RT Notopuro Kabupaten Sidoarjo",
-      category: "MEDIS",
-      phoneNumber: "031-8961649",
-      isGlobal: true,
-    },
-  ];
-
   // Fallback data titik Semarang jika API kosong
   const defaultPoints: EvacuationPoint[] = [
     {
@@ -329,53 +294,16 @@ export default function MapPage() {
     },
   ];
 
-  // Fallback data kontak darurat Semarang
-  const defaultContacts: EmergencyContact[] = [
-    {
-      id: "c-1",
-      name: "BPBD Kota Semarang (Layanan Kedaruratan)",
-      category: "BPBD",
-      phoneNumber: "024-7629464",
-      isGlobal: true,
-    },
-    {
-      id: "c-2",
-      name: "Dinas Pemadam Kebakaran Kota Semarang",
-      category: "DAMKAR",
-      phoneNumber: "024-113",
-      isGlobal: true,
-    },
-    {
-      id: "c-3",
-      name: "Panggilan Darurat Terpadu Nasional (Bebas Pulsa)",
-      category: "KEPOLISIAN",
-      phoneNumber: "112",
-      isGlobal: true,
-    },
-    {
-      id: "c-4",
-      name: "Puskesmas Pembantu Gunung Pati / Sekaran",
-      category: "MEDIS",
-      phoneNumber: "024-8508092",
-      isGlobal: true,
-    },
-  ];
-
   const isSidoarjo = userLocation?.city?.toLowerCase().includes("sidoarjo");
 
-  const displayPoints = isSidoarjo
-    ? sidoarjoPoints
-    : points.length > 0
-    ? points
-    : defaultPoints;
+  // Gabungkan seluruh titik evakuasi agar tidak ada titik yang hilang saat koordinat disesuaikan
+  const displayPoints: EvacuationPoint[] = [
+    ...points,
+    ...(points.length === 0 ? defaultPoints : []),
+    ...(isSidoarjo && !points.some((p) => p.name.includes("Sidoarjo")) ? sidoarjoPoints : []),
+  ];
 
-  const displayRoutes = isSidoarjo ? sidoarjoRoutes : routes;
-
-  const displayContacts = isSidoarjo
-    ? sidoarjoContacts
-    : contacts.length > 0
-    ? contacts
-    : defaultContacts;
+  const displayRoutes = isSidoarjo && sidoarjoRoutes.length > 0 ? sidoarjoRoutes : routes;
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -394,11 +322,19 @@ export default function MapPage() {
 
   return (
     <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+      {/* Toast Notifikasi Penyesuaian Presisi Lokasi */}
+      {pinpointToast && (
+        <div className="fixed top-24 right-6 z-50 flex items-center gap-2.5 bg-gray-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-gray-700 animate-in fade-in slide-in-from-top-2 text-sm font-medium">
+          <Check className="w-4 h-4 text-teal-400 flex-shrink-0" />
+          <span>{pinpointToast}</span>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10">
         {/* ======================================================== */}
         {/* 1. HEADER SECTION                                        */}
         {/* ======================================================== */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-emerge">
           <div className="space-y-1.5">
             <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
               Peta Evakuasi & Titik Kumpul
@@ -406,7 +342,7 @@ export default function MapPage() {
             {userLocation && (
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-teal-100 shadow-2xs text-[#0e6f68] text-xs font-semibold animate-in fade-in">
-                  <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-[#10b981]" />
                   <span>
                     📍 Lokasi Anda:{" "}
                     <strong>
@@ -415,21 +351,37 @@ export default function MapPage() {
                       {userLocation.district ? `Kec. ${userLocation.district}, ` : ""}
                       {userLocation.city}
                     </strong>
-                    {userLocation.accuracy && (
-                      <span className="ml-1.5 px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded-md text-[10px] font-normal border border-teal-200/60">
-                        ±{userLocation.accuracy}m
-                      </span>
-                    )}
                   </span>
+                  <span className="ml-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-[10px] font-bold border border-emerald-200 flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Terkunci Presisi</span>
+                  </span>
+                  {userLocation.accuracy && (
+                    <span className="px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded-md text-[10px] font-normal border border-teal-200/60">
+                      ±{userLocation.accuracy}m
+                    </span>
+                  )}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleAllowLocation}
+                  disabled={locLoading}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-teal-200/90 text-[#0e6f68] text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                  title="Deteksi atau kalibrasi ulang koordinat sensor laptop"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${locLoading ? "animate-spin" : ""}`} />
+                  <span>{locLoading ? "Mengkalibrasi..." : "Kalibrasi Ulang"}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowLocationModal(true)}
                   className="px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-teal-200/90 text-[#0e6f68] text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  title="Ubah atau koreksi titik lokasi"
+                  title="Ubah atau pilih wilayah secara manual"
                 >
                   <MapPin className="w-3.5 h-3.5" />
-                  <span>Pilih / Ganti Lokasi</span>
+                  <span>Pilih Wilayah Lain</span>
                 </button>
               </div>
             )}
@@ -447,45 +399,19 @@ export default function MapPage() {
           )}
         </div>
 
-        {/* Notifikasi Cerdas jika terdeteksi Surabaya padahal pengguna di Sidoarjo */}
-        {userLocation && !userLocation.city.toLowerCase().includes("sidoarjo") && (
-          <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs animate-in fade-in">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 font-bold text-lg">
-                📍
-              </div>
-              <div className="space-y-0.5">
-                <h3 className="text-xs sm:text-sm font-bold text-amber-900">
-                  Lokasi Terdeteksi di {userLocation.city} (Gateway Jaringan Provider)
-                </h3>
-                <p className="text-[11px] sm:text-xs text-amber-700 max-w-2xl leading-relaxed">
-                  Koneksi internet di Jawa Timur sering dialihkan ke gateway Surabaya. Apakah posisi Anda sebenarnya di <strong>Kabupaten Sidoarjo</strong>?
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleSelectPreset(SIDOARJO_PRESET)}
-              className="px-4 py-2.5 bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto whitespace-nowrap"
-            >
-              <span>🎯 Tetapkan ke Sidoarjo, Jawa Timur</span>
-            </button>
-          </div>
-        )}
-
         {/* Banner Izin Deteksi Lokasi (Jika belum diizinkan pengguna) */}
         {!userLocation && (
-          <div className="bg-white rounded-2xl border border-teal-100/90 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-teal-100/90 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-emerge stagger-1">
             <div className="flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-2xl bg-teal-50 text-[#0e6f68] flex items-center justify-center flex-shrink-0">
                 <MapPin className="w-5 h-5" />
               </div>
               <div className="space-y-0.5">
                 <h3 className="text-xs sm:text-sm font-bold text-gray-900">
-                  Sesuaikan Peta dengan Lokasi Anda?
+                  Aktifkan Deteksi Lokasi Presisi Terkunci?
                 </h3>
                 <p className="text-[11px] sm:text-xs text-gray-500 max-w-xl leading-relaxed">
-                  Pilih langsung Kabupaten Sidoarjo atau izinkan deteksi otomatis GPS/IP untuk memusatkan peta ke wilayah Anda.
+                  Sistem Naraga kini dilengkapi peredam fluktuasi sinyal laptop agar titik posisi Anda tetap stabil, presisi, dan tidak melompat-lompat.
                 </p>
               </div>
             </div>
@@ -493,19 +419,19 @@ export default function MapPage() {
             <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
               <button
                 type="button"
-                onClick={() => handleSelectPreset(SIDOARJO_PRESET)}
-                className="px-4 py-2.5 bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                onClick={handleAllowLocation}
+                disabled={locLoading}
+                className="px-4 py-2.5 bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
               >
-                <span>🎯 Pilih Sidoarjo, Jatim (1-Klik)</span>
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{locLoading ? "Mengunci Koordinat..." : "🎯 Deteksi Lokasi Laptop (Stabil)"}</span>
               </button>
               <button
                 type="button"
-                onClick={handleAllowLocation}
-                disabled={locLoading}
-                className="px-3.5 py-2.5 bg-white hover:bg-teal-50 border border-teal-200 text-[#0e6f68] text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
+                onClick={() => setShowLocationModal(true)}
+                className="px-3.5 py-2.5 bg-white hover:bg-teal-50 border border-teal-200 text-[#0e6f68] text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <MapPin className="w-3.5 h-3.5" />
-                <span>{locLoading ? "Mendeteksi..." : "Deteksi Otomatis (GPS)"}</span>
+                <span>Pilih Wilayah Manual</span>
               </button>
             </div>
           </div>
@@ -564,14 +490,24 @@ export default function MapPage() {
                   </option>
                 </select>
               </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Deskripsi / Petunjuk
+                </label>
+                <input
+                  type="text"
+                  value={pointDesc}
+                  onChange={(e) => setPointDesc(e.target.value)}
+                  placeholder="Contoh: Lapangan rumput luas, aman dari kabel listrik"
+                  className="w-full text-xs p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0e6f68]"
+                />
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Latitude
                 </label>
                 <input
-                  type="number"
-                  step="any"
-                  required
+                  type="text"
                   value={pointLat}
                   onChange={(e) => setPointLat(e.target.value)}
                   className="w-full text-xs p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0e6f68]"
@@ -582,31 +518,24 @@ export default function MapPage() {
                   Longitude
                 </label>
                 <input
-                  type="number"
-                  step="any"
-                  required
+                  type="text"
                   value={pointLng}
                   onChange={(e) => setPointLng(e.target.value)}
                   className="w-full text-xs p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0e6f68]"
                 />
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Deskripsi / Keterangan Titik
-                </label>
-                <input
-                  type="text"
-                  value={pointDesc}
-                  onChange={(e) => setPointDesc(e.target.value)}
-                  placeholder="Contoh: Area terbuka berumput luas, bebas dari kabel listrik..."
-                  className="w-full text-xs p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0e6f68]"
-                />
-              </div>
-              <div className="sm:col-span-2 flex justify-end">
+              <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPoint(false)}
+                  className="px-4 py-2 border border-gray-200 text-xs rounded-xl hover:bg-gray-50 cursor-pointer"
+                >
+                  Batal
+                </button>
                 <button
                   type="submit"
                   disabled={addLoading}
-                  className="px-5 py-2.5 bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-bold rounded-xl transition disabled:opacity-50"
+                  className="bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-semibold px-4 py-2 rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {addLoading ? "Menyimpan..." : "Simpan Titik"}
                 </button>
@@ -619,8 +548,8 @@ export default function MapPage() {
         {/* 2. GRID PETA & LOKASI TERDAFTAR (Sesuai Desain Figma)     */}
         {/* ======================================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Kolom Kiri: Lokasi Terdaftar */}
-          <div className="lg:col-span-4 bg-white rounded-[32px] p-6 sm:p-7 border border-gray-100 shadow-sm space-y-4">
+          {/* Kolom Kiri: Lokasi Terdaftar dengan Animasi Terbit Card & List */}
+          <div className="lg:col-span-4 bg-white rounded-[32px] p-6 sm:p-7 border border-gray-100 shadow-sm space-y-4 animate-emerge stagger-1">
             <div className="flex items-center gap-2 text-gray-900 font-bold text-base sm:text-lg mb-2">
               <MapPin className="w-5 h-5 text-gray-900 flex-shrink-0" />
               <span>Lokasi Terdaftar</span>
@@ -630,7 +559,8 @@ export default function MapPage() {
               {displayPoints.map((pt, idx) => (
                 <div
                   key={pt.id || idx}
-                  className="bg-[#edf8f6] rounded-2xl p-4 sm:p-5 border border-teal-100/60 shadow-xs space-y-1.5 transition hover:border-teal-200"
+                  style={{ animationDelay: `${idx * 65 + 60}ms` }}
+                  className="bg-[#edf8f6] rounded-2xl p-4 sm:p-5 border border-teal-100/60 shadow-xs space-y-1.5 transition hover:border-teal-200 animate-emerge"
                 >
                   <div className="flex items-start gap-2.5">
                     <span
@@ -660,8 +590,8 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* Kolom Kanan: Peta Leaflet & Legenda */}
-          <div className="lg:col-span-8 bg-white rounded-[32px] p-6 sm:p-7 border border-gray-100 shadow-sm flex flex-col justify-between space-y-4">
+          {/* Kolom Kanan: Peta Leaflet & Legenda dengan Animasi Terbit Card */}
+          <div className="lg:col-span-8 bg-white rounded-[32px] p-6 sm:p-7 border border-gray-100 shadow-sm flex flex-col justify-between space-y-4 animate-emerge stagger-2">
             {/* Peta Interaktif Leaflet */}
             <div className="w-full h-[520px] rounded-2xl overflow-hidden border border-gray-100 relative z-0 shadow-inner">
               <EvacuationMap
@@ -720,42 +650,6 @@ export default function MapPage() {
             </div>
           </div>
         </div>
-
-        {/* ======================================================== */}
-        {/* 3. SECTION KONTAK DARURAT (Sesuai Desain Figma)           */}
-        {/* ======================================================== */}
-        <section className="space-y-4 pt-4">
-          <h2 className="text-2xl sm:text-[30px] font-bold text-gray-900 tracking-tight">
-            Kontak Darurat
-          </h2>
-
-          <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-4">
-            {displayContacts.map((c) => (
-              <div
-                key={c.id}
-                className="bg-[#edf8f6] border border-teal-100/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs transition hover:border-teal-200"
-              >
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-gray-900">
-                    {c.name}
-                  </h3>
-                  <p className="text-xs text-gray-500 font-normal mt-1">
-                    Kategori: {c.category}{" "}
-                    {c.isGlobal ? "(Nasional/Kota)" : "(Lokal RT/RW)"}
-                  </p>
-                </div>
-
-                <a
-                  href={`tel:${c.phoneNumber.replace(/[^0-9+]/g, "")}`}
-                  className="bg-[#f01d51] hover:bg-[#d91444] text-white font-bold text-xs sm:text-sm px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-xs transition transform active:scale-98 self-start sm:self-center whitespace-nowrap cursor-pointer"
-                >
-                  <Phone className="w-3.5 h-3.5 fill-white" />
-                  <span>{c.phoneNumber}</span>
-                </a>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );

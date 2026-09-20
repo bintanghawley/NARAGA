@@ -14,6 +14,7 @@
 
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -152,24 +153,29 @@ body {
   }
 }
 
-.animate-fade-in-up {
-  animation: fadeInSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+@keyframes emergeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.animate-fade-in-down {
-  animation: fadeInSlideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+.animate-emerge {
+  animation: emergeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.animate-card-entrance {
-  animation: cardEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+.stagger-1 { animation-delay: 60ms; }
+.stagger-2 { animation-delay: 120ms; }
+.stagger-3 { animation-delay: 180ms; }
+.stagger-4 { animation-delay: 240ms; }
+.stagger-5 { animation-delay: 300ms; }
+.stagger-6 { animation-delay: 360ms; }
+.stagger-7 { animation-delay: 420ms; }
+.stagger-8 { animation-delay: 480ms; }
 
-.animate-float-gentle {
-  animation: floatGentle 7s ease-in-out infinite;
-}
-
-.animate-float-gentle-reverse {
-  animation: floatGentleReverse 9s ease-in-out infinite;
-}
 
 

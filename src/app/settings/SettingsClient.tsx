@@ -1,22 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import {
-  Compass,
-  Bot,
-  Settings,
-  Sparkles,
   User,
   Shield,
-  SlidersHorizontal,
   Lock,
   Pencil,
   RotateCcw,
-  Sun,
-  Moon,
-  Languages,
   LogOut,
   Trash2,
   ChevronRight,
@@ -25,9 +17,37 @@ import {
   AlertTriangle,
   KeyRound,
   Building,
-  Clock,
-  ExternalLink,
+  Camera,
+  Upload,
 } from "lucide-react";
+import DashboardSidebar from "@/components/DashboardSidebar";
+
+function parseNameAndRole(fullName: string, defaultRole: string) {
+  const match = fullName.match(/^(.*?)\s*\((.*?)\)\s*$/);
+  if (match) {
+    return {
+      nameOnly: match[1].trim(),
+      roleTitle: match[2].trim(),
+    };
+  }
+  const fallbackRoleTitle =
+    defaultRole === "PENGURUS"
+      ? "Ketua RT / Pengurus Lingkungan"
+      : defaultRole === "ADMIN"
+      ? "Administrator Wilayah"
+      : "Warga Komunitas";
+
+  return {
+    nameOnly: fullName.trim(),
+    roleTitle: fallbackRoleTitle,
+  };
+}
+
+const PRESET_AVATARS = [
+  { label: "Foto 1", src: "/images/avatar-evan.jpg" },
+  { label: "Foto 2", src: "/images/avatar-firman.jpg" },
+  { label: "Foto 3", src: "/images/avatar-raffi.jpg" },
+];
 
 interface CommunityItem {
   id: string;
@@ -40,14 +60,6 @@ interface CommunityItem {
   province: string;
 }
 
-interface AssessmentHistoryItem {
-  id: string;
-  score: number;
-  completedAt: string | Date | null;
-  facilityGapCount: number;
-  awarenessGapCount: number;
-}
-
 interface SettingsClientProps {
   initialUser: {
     id: string;
@@ -58,24 +70,18 @@ interface SettingsClientProps {
     community: CommunityItem | null;
   };
   communities: CommunityItem[];
-  history: AssessmentHistoryItem[];
 }
 
 export default function SettingsClient({
   initialUser,
   communities,
-  history,
 }: SettingsClientProps) {
   const [activeSubTab, setActiveSubTab] = useState<
-    "profil" | "privasi" | "preferensi" | "keamanan"
+    "profil" | "privasi" | "keamanan"
   >("profil");
 
   // User state
   const [currentUser, setCurrentUser] = useState(initialUser);
-
-  // Preference states
-  const [darkMode, setDarkMode] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("Bahasa Indonesia");
 
   // Notification / Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -90,16 +96,32 @@ export default function SettingsClient({
   // Modals state
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editCommunityOpen, setEditCommunityOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [languageOpen, setLanguageOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // Avatar state & file input refs
+  const [avatarUrl, setAvatarUrl] = useState<string>("/images/avatar-evan.jpg");
+  const directFileInputRef = useRef<HTMLInputElement>(null);
+  const modalFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("naraga_user_avatar");
+      if (saved) {
+        setAvatarUrl(saved);
+      }
+    }
+  }, []);
+
+  const initialParsed = parseNameAndRole(initialUser.name, initialUser.role);
+
   // Form states
   const [profileForm, setProfileForm] = useState({
-    name: initialUser.name,
+    name: initialParsed.nameOnly,
+    roleTitle: initialParsed.roleTitle,
     email: initialUser.email,
+    avatar: "/images/avatar-evan.jpg",
   });
   const [selectedCommunityId, setSelectedCommunityId] = useState(
     initialUser.communityId || (communities[0]?.id ?? "")
@@ -112,45 +134,148 @@ export default function SettingsClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Scroll smoothly to section when subtab clicked
-  const handleTabClick = (tab: "profil" | "privasi" | "preferensi" | "keamanan") => {
-    setActiveSubTab(tab);
-    const elementId =
-      tab === "profil"
-        ? "section-profil"
-        : tab === "privasi"
-        ? "section-privasi"
-        : tab === "preferensi"
-        ? "section-preferensi"
-        : "section-keamanan";
-    const el = document.getElementById(elementId);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Upload handler langsung dari kartu profil
+  const handleDirectFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) {
+        showToast("Ukuran foto maksimal 3MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setAvatarUrl(result);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("naraga_user_avatar", result);
+            window.dispatchEvent(
+              new CustomEvent("naraga_avatar_changed", { detail: result })
+            );
+          }
+          showToast("Foto profil berhasil diperbarui!");
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // 1. Submit Edit Profile
+  // Upload handler dari dalam modal edit
+  const handleModalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) {
+        setFormError("Ukuran foto maksimal 3MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setProfileForm((prev) => ({ ...prev, avatar: result }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const isScrollingFromClickRef = useRef(false);
+
+  // Scrollspy: sesuaikan activeSubTab secara dinamis saat halaman digulir
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isScrollingFromClickRef.current) return;
+
+      const scrollPosition = window.scrollY + 140;
+      const privasiEl = document.getElementById("section-privasi");
+      const keamananEl = document.getElementById("section-keamanan");
+
+      if (keamananEl && scrollPosition >= keamananEl.offsetTop) {
+        setActiveSubTab("keamanan");
+      } else if (privasiEl && scrollPosition >= privasiEl.offsetTop) {
+        setActiveSubTab("privasi");
+      } else {
+        setActiveSubTab("profil");
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Scroll smoothly ke seksi yang dipilih di dalam settings (tanpa scroll ke paling atas kecuali tab profil)
+  const handleTabClick = (tab: "profil" | "privasi" | "keamanan") => {
+    setActiveSubTab(tab);
+    isScrollingFromClickRef.current = true;
+
+    if (tab === "profil") {
+      // Profil berada di atas, tampilkan judul Settings dan kartu profil
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        isScrollingFromClickRef.current = false;
+      }, 700);
+      return;
+    }
+
+    const elementId =
+      tab === "privasi" ? "section-privasi" : "section-keamanan";
+    const el = document.getElementById(elementId);
+    if (el) {
+      const headerOffset = 96; // 80px navbar + 16px buffer
+      const elementPosition = el.getBoundingClientRect().top;
+      const offsetPosition =
+        elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: "smooth",
+      });
+    }
+
+    setTimeout(() => {
+      isScrollingFromClickRef.current = false;
+    }, 700);
+  };
+
+  // 1. Submit Edit Profile (Pisah Nama & Peran + Simpan Foto)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setIsSubmitting(true);
     try {
+      const combinedName = profileForm.roleTitle.trim()
+        ? `${profileForm.name.trim()} (${profileForm.roleTitle.trim()})`
+        : profileForm.name.trim();
+
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profileForm),
+        body: JSON.stringify({
+          name: combinedName,
+          email: profileForm.email,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Gagal memperbarui profil");
       }
+
+      if (profileForm.avatar) {
+        setAvatarUrl(profileForm.avatar);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("naraga_user_avatar", profileForm.avatar);
+          window.dispatchEvent(
+            new CustomEvent("naraga_avatar_changed", { detail: profileForm.avatar })
+          );
+        }
+      }
+
       setCurrentUser((prev) => ({
         ...prev,
-        name: profileForm.name,
+        name: combinedName,
         email: profileForm.email,
       }));
       setEditProfileOpen(false);
-      showToast("Profil berhasil diperbarui!");
+      showToast("Data profil dan foto berhasil diperbarui!");
     } catch (err: any) {
       setFormError(err.message || "Terjadi kesalahan");
     } finally {
@@ -242,181 +367,186 @@ export default function SettingsClient({
 
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
         {/* ======================================================== */}
-        {/* 1. SIDEBAR KIRI UTAMA (Floating White Card Sesuai Figma) */}
+        {/* 1. SIDEBAR KIRI UTAMA FIXED & SLIDING HIJAU               */}
         {/* ======================================================== */}
-        <aside className="w-full lg:w-64 bg-white rounded-[28px] p-4 shadow-sm border border-gray-100 flex-shrink-0 space-y-2">
-          {/* Menu 1: Overview */}
-          <Link
-            href="/dashboard"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Compass className="w-5 h-5" />
-            </div>
-            <span>Overview</span>
-          </Link>
-
-          {/* Menu 2: Tanya AI ✨ */}
-          <Link
-            href="/ai"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Bot className="w-5 h-5" />
-            </div>
-            <span className="flex items-center gap-1.5">
-              Tanya AI <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            </span>
-          </Link>
-
-          {/* Menu 3: Settings (ACTIVE - Deep Teal Pill) */}
-          <Link
-            href="/settings"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[#0e6f68] text-white font-semibold text-sm shadow-xs transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-white" />
-            </div>
-            <span>Settings</span>
-          </Link>
-        </aside>
+        <DashboardSidebar />
 
         {/* ======================================================== */}
         {/* 2. KONTEN UTAMA SETTINGS                                 */}
         {/* ======================================================== */}
-        <main className="flex-1 w-full space-y-6">
-          {/* Judul Halaman */}
-          <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
-            Settings
-          </h1>
-
+        <main className="flex-1 w-full">
           {/* Layout Dua Kolom: Sub-Sidebar Navigasi & Kartu-Kartu Pengaturan */}
           <div className="flex flex-col md:flex-row items-start gap-6 lg:gap-8">
-            {/* SUB-SIDEBAR NAVIGASI PENGATURAN */}
-            <div className="w-full md:w-56 bg-white rounded-[24px] p-3 shadow-sm border border-gray-100 flex-shrink-0 space-y-1.5">
-              {/* Tab 1: Profil */}
-              <button
-                onClick={() => handleTabClick("profil")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition cursor-pointer text-left ${
-                  activeSubTab === "profil"
-                    ? "bg-[#0e6f68] text-white font-semibold shadow-2xs"
-                    : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                <User
-                  className={`w-4 h-4 ${
-                    activeSubTab === "profil" ? "text-white" : "text-gray-600"
-                  }`}
-                />
-                <span>Profil</span>
-              </button>
+            {/* KOLOM KIRI: Judul Settings & Sub-Sidebar Navigasi (STICKY & SEJAJAR LURUS) */}
+            <div className="w-full md:w-56 flex-shrink-0 md:sticky md:top-24 md:self-start z-10 space-y-3">
+              <h1 className="text-2xl sm:text-[28px] font-bold text-gray-900 tracking-tight h-8 sm:h-9 flex items-center animate-emerge">
+                Settings
+              </h1>
 
-              {/* Tab 2: Privasi & Data */}
-              <button
-                onClick={() => handleTabClick("privasi")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition cursor-pointer text-left ${
-                  activeSubTab === "privasi"
-                    ? "bg-[#0e6f68] text-white font-semibold shadow-2xs"
-                    : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                <Shield
-                  className={`w-4 h-4 ${
-                    activeSubTab === "privasi" ? "text-white" : "text-gray-600"
-                  }`}
-                />
-                <span>Privasi & Data</span>
-              </button>
+              {/* SUB-SIDEBAR NAVIGASI PENGATURAN (SLIDING HIJAU) */}
+              <div className="bg-white rounded-[24px] p-2.5 shadow-sm border border-gray-100 transition-all">
+                <div className="relative flex flex-col gap-1">
+                  {/* Indikator Hijau Meluncur (Sliding Pill) */}
+                  <div
+                    className="absolute left-0 right-0 h-[44px] rounded-xl bg-[#0e6f68] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none shadow-xs z-0"
+                    style={{
+                      transform: `translateY(${
+                        (activeSubTab === "profil" ? 0 : activeSubTab === "privasi" ? 1 : 2) * 48
+                      }px)`,
+                    }}
+                  />
 
-              {/* Tab 3: Preferensi */}
-              <button
-                onClick={() => handleTabClick("preferensi")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition cursor-pointer text-left ${
-                  activeSubTab === "preferensi"
-                    ? "bg-[#0e6f68] text-white font-semibold shadow-2xs"
-                    : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                <SlidersHorizontal
-                  className={`w-4 h-4 ${
-                    activeSubTab === "preferensi" ? "text-white" : "text-gray-600"
-                  }`}
-                />
-                <span>Preferensi</span>
-              </button>
+                  {/* Tab 1: Profil */}
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick("profil")}
+                    className={`relative z-10 w-full h-[44px] flex items-center gap-3 px-4 rounded-xl font-medium text-sm transition-colors duration-200 cursor-pointer text-left ${
+                      activeSubTab === "profil"
+                        ? "text-white font-semibold"
+                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50/50"
+                    }`}
+                  >
+                    <User
+                      className={`w-4 h-4 transition-colors ${
+                        activeSubTab === "profil" ? "text-white" : "text-gray-500"
+                      }`}
+                    />
+                    <span>Profil</span>
+                  </button>
 
-              {/* Tab 4: Akun & Keamanan */}
-              <button
-                onClick={() => handleTabClick("keamanan")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition cursor-pointer text-left ${
-                  activeSubTab === "keamanan"
-                    ? "bg-[#0e6f68] text-white font-semibold shadow-2xs"
-                    : "text-gray-700 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                <Lock
-                  className={`w-4 h-4 ${
-                    activeSubTab === "keamanan" ? "text-white" : "text-gray-600"
-                  }`}
-                />
-                <span>Akun & Keamanan</span>
-              </button>
+                  {/* Tab 2: Privasi & Data */}
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick("privasi")}
+                    className={`relative z-10 w-full h-[44px] flex items-center gap-3 px-4 rounded-xl font-medium text-sm transition-colors duration-200 cursor-pointer text-left ${
+                      activeSubTab === "privasi"
+                        ? "text-white font-semibold"
+                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50/50"
+                    }`}
+                  >
+                    <Shield
+                      className={`w-4 h-4 transition-colors ${
+                        activeSubTab === "privasi" ? "text-white" : "text-gray-500"
+                      }`}
+                    />
+                    <span>Privasi & Data</span>
+                  </button>
+
+                  {/* Tab 3: Akun & Keamanan */}
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick("keamanan")}
+                    className={`relative z-10 w-full h-[44px] flex items-center gap-3 px-4 rounded-xl font-medium text-sm transition-colors duration-200 cursor-pointer text-left ${
+                      activeSubTab === "keamanan"
+                        ? "text-white font-semibold"
+                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50/50"
+                    }`}
+                  >
+                    <Lock
+                      className={`w-4 h-4 transition-colors ${
+                        activeSubTab === "keamanan" ? "text-white" : "text-gray-500"
+                      }`}
+                    />
+                    <span>Akun & Keamanan</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* PANEL KARTU PENGATURAN (SISI KANAN) */}
+            {/* KOLOM KANAN: PANEL KARTU PENGATURAN */}
             <div className="flex-1 w-full space-y-8">
               {/* =================================================== */}
-              {/* SEKSI 1: PROFIL                                    */}
+              {/* SEKSI 1: PROFIL (SEJAJAR DENGAN KOLOM KIRI)        */}
               {/* =================================================== */}
-              <section id="section-profil" className="space-y-3 scroll-mt-24">
-                <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+              <section id="section-profil" className="space-y-3 scroll-mt-24 animate-emerge stagger-1">
+                <h2 className="text-2xl sm:text-[28px] font-bold text-gray-900 tracking-tight h-8 sm:h-9 flex items-center">
                   Profil
                 </h2>
 
                 <div className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 space-y-5">
-                  {/* Bagian Atas: Avatar + Nama + Email + Tombol Edit */}
+                  {/* Bagian Atas: Avatar + Nama + Peran Terpisah + Email + Tombol Edit */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full overflow-hidden border border-gray-200 bg-teal-50 flex-shrink-0 shadow-xs">
-                        <img
-                          src="/images/avatar-evan.jpg"
-                          alt={currentUser.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80";
-                          }}
+                      {/* Avatar with Camera Overlay */}
+                      <div
+                        className="relative group cursor-pointer"
+                        onClick={() => directFileInputRef.current?.click()}
+                        title="Klik untuk ganti foto profil"
+                      >
+                        <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-white bg-teal-50 flex-shrink-0 shadow-sm ring-2 ring-teal-100/90">
+                          <img
+                            src={avatarUrl}
+                            alt={parseNameAndRole(currentUser.name, currentUser.role).nameOnly}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80";
+                            }}
+                          />
+                        </div>
+                        <div className="absolute inset-0 rounded-full bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <Camera className="w-5 h-5 drop-shadow-sm" />
+                        </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-[#0e6f68] text-white flex items-center justify-center shadow-md border-2 border-white">
+                          <Camera className="w-3 h-3" />
+                        </div>
+                        <input
+                          ref={directFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleDirectFileChange}
                         />
                       </div>
-                      <div className="space-y-0.5">
-                        <h3 className="text-lg font-bold text-gray-900 leading-snug">
-                          {currentUser.name}
+
+                      {/* Detail Nama, Peran Terpisah, Email, dan Role Badge */}
+                      <div className="space-y-1">
+                        {/* 1. Nama Sendiri */}
+                        <h3 className="text-xl font-bold text-gray-900 leading-snug tracking-tight">
+                          {parseNameAndRole(currentUser.name, currentUser.role).nameOnly}
                         </h3>
-                        <p className="text-sm text-gray-500">{currentUser.email}</p>
-                        <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-[#0e6f68] border border-teal-100 uppercase mt-1">
-                          {currentUser.role}
-                        </span>
+
+                        {/* 2. Peran Sendiri */}
+                        <p className="text-sm font-semibold text-[#0e6f68] flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-[#0e6f68]" />
+                          <span>{parseNameAndRole(currentUser.name, currentUser.role).roleTitle}</span>
+                        </p>
+
+                        {/* 3. Email */}
+                        <p className="text-xs text-gray-500 font-normal">
+                          {currentUser.email}
+                        </p>
+
+                        {/* 4. Role Badge System */}
+                        <div className="pt-0.5">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-[#0e6f68] border border-teal-100 uppercase tracking-wide">
+                            {currentUser.role}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
                     <button
                       onClick={() => {
+                        const parsed = parseNameAndRole(currentUser.name, currentUser.role);
                         setProfileForm({
-                          name: currentUser.name,
+                          name: parsed.nameOnly,
+                          roleTitle: parsed.roleTitle,
                           email: currentUser.email,
+                          avatar: avatarUrl,
                         });
                         setFormError(null);
                         setEditProfileOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition self-start sm:self-center cursor-pointer shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 transition self-start sm:self-center cursor-pointer shadow-2xs"
                     >
                       <Pencil className="w-3.5 h-3.5 text-gray-500" />
                       <span>Edit</span>
                     </button>
                   </div>
 
-                  {/* Bagian Bawah: Sub-kartu Alamat Wilayah (Latar Hijau Mint Muda) */}
-                  <div className="bg-[#f0fbf9] border border-teal-100/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {/* Bagian Bawah: Alamat Wilayah Komunitas */}
+                  <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <p className="text-sm font-bold text-gray-900">Alamat wilayah</p>
                       <p className="text-xs text-gray-600 font-medium leading-relaxed">
@@ -442,7 +572,7 @@ export default function SettingsClient({
               {/* =================================================== */}
               {/* SEKSI 2: PRIVASI & DATA                            */}
               {/* =================================================== */}
-              <section id="section-privasi" className="space-y-3 scroll-mt-24">
+              <section id="section-privasi" className="space-y-3 scroll-mt-24 animate-emerge stagger-2">
                 <h2 className="text-xl font-bold text-gray-900 tracking-tight">
                   Privasi & Data
                 </h2>
@@ -475,98 +605,9 @@ export default function SettingsClient({
               </section>
 
               {/* =================================================== */}
-              {/* SEKSI 3: PREFERENSI                                */}
+              {/* SEKSI 3: AKUN & KEAMANAN                           */}
               {/* =================================================== */}
-              <section id="section-preferensi" className="space-y-3 scroll-mt-24">
-                <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-                  Preferensi
-                </h2>
-
-                <div className="bg-white rounded-[24px] p-4 sm:p-6 shadow-sm border border-gray-100 divide-y divide-gray-100">
-                  {/* Item 1: Dark Mode Toggle Radio */}
-                  <div className="pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
-                        <Sun className="w-4 h-4" />
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900">
-                        Dark Mode
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-5 sm:gap-7">
-                      {/* Opsi Light */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDarkMode(false);
-                          showToast("Mode Terang (Light Mode) aktif");
-                        }}
-                        className="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-800 cursor-pointer group"
-                      >
-                        <span
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition ${
-                            !darkMode
-                              ? "border-[#0e6f68] bg-[#0e6f68]"
-                              : "border-gray-300 group-hover:border-gray-400"
-                          }`}
-                        >
-                          {!darkMode && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </span>
-                        <Sun className="w-4 h-4 text-gray-700" />
-                        <span>Light</span>
-                      </button>
-
-                      {/* Opsi Dark */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDarkMode(true);
-                          showToast("Mode Gelap (Dark Mode) aktif");
-                        }}
-                        className="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-800 cursor-pointer group"
-                      >
-                        <span
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition ${
-                            darkMode
-                              ? "border-[#0e6f68] bg-[#0e6f68]"
-                              : "border-gray-300 group-hover:border-gray-400"
-                          }`}
-                        >
-                          {darkMode && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </span>
-                        <Moon className="w-4 h-4 text-gray-700" />
-                        <span>Dark</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Item 2: Bahasa */}
-                  <div className="pt-5 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center text-[#0e6f68]">
-                        <Languages className="w-4 h-4" />
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900">
-                        Bahasa
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => setLanguageOpen(true)}
-                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer shadow-2xs"
-                    >
-                      <span>{selectedLanguage}</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              {/* =================================================== */}
-              {/* SEKSI 4: AKUN & KEAMANAN                           */}
-              {/* =================================================== */}
-              <section id="section-keamanan" className="space-y-3 scroll-mt-24">
+              <section id="section-keamanan" className="space-y-3 scroll-mt-24 animate-emerge stagger-3">
                 <h2 className="text-xl font-bold text-gray-900 tracking-tight">
                   Akun & Keamanan
                 </h2>
@@ -647,7 +688,7 @@ export default function SettingsClient({
       </div>
 
       {/* ======================================================== */}
-      {/* MODAL 1: EDIT PROFIL                                     */}
+      {/* MODAL 1: EDIT PROFIL (PISAH NAMA & PERAN + GANTI FOTO)   */}
       {/* ======================================================== */}
       {editProfileOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
@@ -655,8 +696,9 @@ export default function SettingsClient({
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">Ubah Data Profil</h3>
               <button
+                type="button"
                 onClick={() => setEditProfileOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -669,6 +711,71 @@ export default function SettingsClient({
             )}
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
+              {/* Bagian Ganti Foto Profil */}
+              <div className="p-3.5 rounded-2xl bg-gray-50/90 border border-gray-100 space-y-2.5">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Foto Profil
+                </label>
+                <div className="flex items-center gap-3.5">
+                  <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-xs bg-teal-50 flex-shrink-0">
+                    <img
+                      src={profileForm.avatar}
+                      alt="Preview Foto"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80";
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => modalFileInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 hover:bg-gray-100 text-xs font-semibold text-gray-700 shadow-2xs transition cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-[#0e6f68]" />
+                        <span>Unggah Foto</span>
+                      </button>
+                      <input
+                        ref={modalFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleModalFileChange}
+                      />
+                    </div>
+                    {/* Opsi Preset Cepat */}
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <span className="text-[11px] text-gray-500">Preset:</span>
+                      {PRESET_AVATARS.map((preset) => (
+                        <button
+                          key={preset.src}
+                          type="button"
+                          onClick={() =>
+                            setProfileForm((prev) => ({ ...prev, avatar: preset.src }))
+                          }
+                          className={`w-6 h-6 rounded-full overflow-hidden border transition cursor-pointer ${
+                            profileForm.avatar === preset.src
+                              ? "ring-2 ring-[#0e6f68] border-white scale-110"
+                              : "border-gray-200 opacity-70 hover:opacity-100"
+                          }`}
+                          title={`Gunakan ${preset.label}`}
+                        >
+                          <img
+                            src={preset.src}
+                            alt={preset.label}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Input 1: Nama Lengkap (Nama Sendiri) */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Nama Lengkap
@@ -680,10 +787,32 @@ export default function SettingsClient({
                   onChange={(e) =>
                     setProfileForm({ ...profileForm, name: e.target.value })
                   }
+                  placeholder="Contoh: Bambang Sudarsono"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e6f68] focus:border-transparent"
                 />
               </div>
 
+              {/* Input 2: Peran / Jabatan di Lingkungan (Perannya Sendiri) */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center justify-between">
+                  <span>Peran / Jabatan di Lingkungan</span>
+                  <span className="text-[11px] text-[#0e6f68] font-medium">
+                    (Terpisah dari nama)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={profileForm.roleTitle}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, roleTitle: e.target.value })
+                  }
+                  placeholder="Contoh: Ketua RT 03 / Koordinator Warga / Warga"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e6f68] focus:border-transparent"
+                />
+              </div>
+
+              {/* Input 3: Alamat Email */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Alamat Email
@@ -699,18 +828,18 @@ export default function SettingsClient({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setEditProfileOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-bold shadow-xs disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-[#0e6f68] hover:bg-[#0a524d] text-white text-xs font-bold shadow-xs disabled:opacity-50 transition cursor-pointer"
                 >
                   {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
                 </button>
@@ -796,147 +925,6 @@ export default function SettingsClient({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL 3: RIWAYAT ASESMEN                                 */}
-      {/* ======================================================== */}
-      {historyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-[24px] max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-[#0e6f68]" />
-                <h3 className="text-lg font-bold text-gray-900">
-                  Riwayat Asesmen Kesiapsiagaan
-                </h3>
-              </div>
-              <button
-                onClick={() => setHistoryOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {history.length === 0 ? (
-              <div className="text-center py-8 space-y-2">
-                <RotateCcw className="w-8 h-8 text-gray-300 mx-auto" />
-                <p className="text-sm font-semibold text-gray-700">
-                  Belum Ada Riwayat Asesmen
-                </p>
-                <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                  Anda belum pernah mengisi tes kesiapsiagaan lingkungan.
-                </p>
-                <Link
-                  href="/assessment"
-                  className="inline-block mt-2 px-4 py-2 rounded-xl bg-[#0e6f68] text-white text-xs font-bold"
-                >
-                  Mulai Tes Sekarang
-                </Link>
-              </div>
-            ) : (
-              <div className="max-h-72 overflow-y-auto space-y-2.5 pr-1">
-                {history.map((h, idx) => {
-                  const dateStr = h.completedAt
-                    ? new Date(h.completedAt).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Tanggal tidak tercatat";
-
-                  return (
-                    <div
-                      key={h.id || idx}
-                      className="p-3.5 rounded-2xl border border-gray-200 bg-gray-50/70 flex items-center justify-between gap-3"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-gray-900">
-                            Skor: {Math.round(h.score)}%
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-[#0e6f68]">
-                            Selesai
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-gray-500">{dateStr}</p>
-                        <p className="text-[11px] text-gray-600">
-                          Gap Sarana: {h.facilityGapCount} • Gap Pemahaman:{" "}
-                          {h.awarenessGapCount}
-                        </p>
-                      </div>
-
-                      <Link
-                        href="/assessment?view=result"
-                        className="inline-flex items-center gap-1 text-xs font-bold text-[#0e6f68] hover:underline"
-                      >
-                        Lihat <ExternalLink className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex justify-end pt-2 border-t border-gray-100">
-              <button
-                onClick={() => setHistoryOpen(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL 4: PEMILIH BAHASA                                  */}
-      {/* ======================================================== */}
-      {languageOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-[24px] max-w-sm w-full p-6 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="text-lg font-bold text-gray-900">Pilih Bahasa</h3>
-              <button
-                onClick={() => setLanguageOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {[
-                { label: "Bahasa Indonesia", code: "id" },
-                { label: "English (United States)", code: "en" },
-              ].map((lang) => {
-                const isSelected = selectedLanguage === lang.label;
-                return (
-                  <button
-                    key={lang.code}
-                    onClick={() => {
-                      setSelectedLanguage(lang.label);
-                      setLanguageOpen(false);
-                      showToast(`Bahasa diatur ke: ${lang.label}`);
-                    }}
-                    className={`w-full p-3 rounded-xl border flex items-center justify-between transition cursor-pointer text-left ${
-                      isSelected
-                        ? "bg-teal-50 border-[#0e6f68] font-bold text-[#0e6f68]"
-                        : "border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium"
-                    }`}
-                  >
-                    <span>{lang.label}</span>
-                    {isSelected && <Check className="w-4 h-4 text-[#0e6f68]" />}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </div>
       )}

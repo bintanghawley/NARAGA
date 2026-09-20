@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { calculateDistanceMeters } from "@/lib/location";
 
 interface EvacuationPoint {
   id: string;
@@ -55,6 +56,7 @@ export default function EvacuationMap({
   const routesLayerRef = useRef<L.LayerGroup | null>(null);
   const pinpointRef = useRef(onPinpointLocation);
   pinpointRef.current = onPinpointLocation;
+  const lastFlyCoordsRef = useRef<[number, number] | null>(null);
 
   // 1. Inisialisasi Map hanya SEKALI saat mount
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function EvacuationMap({
 
     const map = L.map(container, {
       center: [initialLat, initialLng],
-      zoom: 16,
+      zoom: 13,
       scrollWheelZoom: true,
     });
     mapInstanceRef.current = map;
@@ -90,6 +92,17 @@ export default function EvacuationMap({
     markersLayerRef.current = markersGroup;
     routesLayerRef.current = routesGroup;
 
+    // Animasi Cinematic Zoom-In saat peta pertama kali dibuka
+    const flyTimer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([initialLat, initialLng], 16, {
+          animate: true,
+          duration: 1.6,
+          easeLinearity: 0.25,
+        });
+      }
+    }, 350);
+
     // Izinkan pengguna mengklik peta untuk meletakkan titik lokasi 100% tepat
     map.on("click", (e: L.LeafletMouseEvent) => {
       if (pinpointRef.current) {
@@ -99,6 +112,7 @@ export default function EvacuationMap({
 
     // Cleanup saat unmount
     return () => {
+      clearTimeout(flyTimer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -244,22 +258,33 @@ export default function EvacuationMap({
               ${userLocation.accuracy ? ` (±${userLocation.accuracy}m)` : ""}
             </p>
           </div>
-          <p style="margin:6px 0 0; font-size:9.5px; color:#0e6f68; font-style:italic;">
-            💡 Tip: Geser pin ini atau klik di peta untuk mengatur titik 100% presisi.
-          </p>
         </div>
       `);
 
       markersGroup.addLayer(userMarker);
 
-      // Fly map ke lokasi pengguna terdeteksi dan buka popup
-      map.flyTo([userLocation.latitude, userLocation.longitude], 16, {
-        animate: true,
-        duration: 1.0,
-      });
-      userMarker.openPopup();
+      // Fly map ke lokasi pengguna HANYA jika berpindah > 50 meter (mencegah getaran kamera laptop)
+      const shouldFly =
+        !lastFlyCoordsRef.current ||
+        calculateDistanceMeters(
+          lastFlyCoordsRef.current[0],
+          lastFlyCoordsRef.current[1],
+          userLocation.latitude,
+          userLocation.longitude
+        ) > 50;
+
+      if (shouldFly) {
+        map.flyTo([userLocation.latitude, userLocation.longitude], 16, {
+          animate: true,
+          duration: 0.8,
+        });
+        lastFlyCoordsRef.current = [userLocation.latitude, userLocation.longitude];
+      }
     } else if (points.length > 0) {
-      map.panTo([points[0].latitude, points[0].longitude]);
+      if (!lastFlyCoordsRef.current) {
+        map.panTo([points[0].latitude, points[0].longitude]);
+        lastFlyCoordsRef.current = [points[0].latitude, points[0].longitude];
+      }
     }
   }, [points, routes, userLocation]);
 
@@ -271,17 +296,9 @@ export default function EvacuationMap({
       />
 
       {/* Floating Interactive Controls di atas peta */}
-      <div className="absolute top-3 left-3 right-3 z-[400] flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        {/* Banner Panduan Presisi */}
-        <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-gray-200/80 flex items-center gap-2 text-[11px] font-medium text-gray-700">
-          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-          <span>
-            <b>Klik di peta</b> atau <b>geser pin 📍</b> untuk titik 100% presisi
-          </span>
-        </div>
-
-        {/* Tombol Ambil GPS Cepat */}
-        {onTriggerGPS && (
+      {onTriggerGPS && (
+        <div className="absolute top-3 right-3 z-[400] pointer-events-none">
+          {/* Tombol Ambil GPS Cepat */}
           <button
             type="button"
             onClick={onTriggerGPS}
@@ -292,8 +309,8 @@ export default function EvacuationMap({
             <span className={isDetectingGPS ? "animate-spin" : ""}>🎯</span>
             <span>{isDetectingGPS ? "Mencari GPS..." : "GPS Presisi"}</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

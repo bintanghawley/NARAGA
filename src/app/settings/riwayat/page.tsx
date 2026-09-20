@@ -3,15 +3,13 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import {
-  Compass,
-  Bot,
-  Settings,
-  Sparkles,
   ArrowLeft,
   Calendar,
   MapPin,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
+import DashboardSidebar from "@/components/DashboardSidebar";
 
 export default async function RiwayatPage() {
   const session = await auth();
@@ -107,67 +105,47 @@ export default async function RiwayatPage() {
         {/* ======================================================== */}
         {/* 1. SIDEBAR KIRI UTAMA (Floating White Card Sesuai Figma) */}
         {/* ======================================================== */}
-        <aside className="w-full lg:w-64 bg-white rounded-[28px] p-4 shadow-sm border border-gray-100 flex-shrink-0 space-y-2">
-          {/* Menu 1: Overview */}
-          <Link
-            href="/dashboard"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Compass className="w-5 h-5" />
-            </div>
-            <span>Overview</span>
-          </Link>
-
-          {/* Menu 2: Tanya AI ✨ */}
-          <Link
-            href="/ai"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Bot className="w-5 h-5" />
-            </div>
-            <span className="flex items-center gap-1.5">
-              Tanya AI <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            </span>
-          </Link>
-
-          {/* Menu 3: Settings (ACTIVE - Deep Teal Pill) */}
-          <Link
-            href="/settings"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[#0e6f68] text-white font-semibold text-sm shadow-xs transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-white" />
-            </div>
-            <span>Settings</span>
-          </Link>
-        </aside>
+        {/* ======================================================== */}
+        {/* 1. SIDEBAR KIRI UTAMA FIXED & SLIDING HIJAU               */}
+        {/* ======================================================== */}
+        <DashboardSidebar />
 
         {/* ======================================================== */}
         {/* 2. KONTEN UTAMA: HALAMAN RIWAYAT                         */}
         {/* ======================================================== */}
         <main className="flex-1 w-full space-y-6">
-          {/* Header Bar: Tombol Kembali + Judul Riwayat */}
-          <div className="flex items-center gap-3">
+          {/* Header Bar: Tombol Kembali + Judul Riwayat + Tombol Kerjakan Lagi */}
+          <div className="flex items-center justify-between gap-3 animate-emerge">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/settings"
+                className="p-1.5 -ml-1.5 rounded-xl text-gray-900 hover:bg-white/70 transition flex items-center justify-center group"
+                title="Kembali ke Pengaturan"
+              >
+                <ArrowLeft className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] group-hover:-translate-x-0.5 transition-transform" />
+              </Link>
+              <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
+                Riwayat
+              </h1>
+            </div>
+
             <Link
-              href="/settings"
-              className="p-1.5 -ml-1.5 rounded-xl text-gray-900 hover:bg-white/70 transition flex items-center justify-center group"
-              title="Kembali ke Pengaturan"
+              href="/assessment?retake=true"
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#0e6f68] hover:bg-[#0a524d] rounded-xl transition shadow-xs cursor-pointer"
+              title="Kerjakan lagi tes kesiapsiagaan"
             >
-              <ArrowLeft className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] group-hover:-translate-x-0.5 transition-transform" />
+              <RotateCcw className="w-4 h-4" />
+              <span>Kerjakan Lagi</span>
             </Link>
-            <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
-              Riwayat
-            </h1>
           </div>
 
           {/* Kontainer Putih Besar Kartu Riwayat */}
           <div className="bg-white rounded-[28px] p-5 sm:p-7 lg:p-8 shadow-sm border border-gray-100 space-y-3.5">
-            {historyItems.map((item) => (
+            {historyItems.map((item, idx) => (
               <div
                 key={item.id}
-                className="p-4 sm:p-5 rounded-2xl border border-gray-200/80 bg-white hover:border-teal-200 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs group"
+                style={{ animationDelay: `${idx * 70 + 80}ms` }}
+                className="p-4 sm:p-5 rounded-2xl border border-gray-200/80 bg-white hover:border-teal-200 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs group animate-emerge"
               >
                 {/* Kolom Kiri: Tanggal & Lokasi Wilayah */}
                 <div className="space-y-1.5 sm:min-w-[240px]">

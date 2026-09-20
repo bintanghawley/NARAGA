@@ -12,6 +12,7 @@ export interface UserLocation {
   displayName?: string; // Alamat presisi lengkap
   isp?: string;
   source: "ip" | "gps" | "fallback" | "manual";
+  isLocked?: boolean; // Apakah lokasi dikunci agar tidak bergeser sendiri
 }
 
 export const SIDOARJO_PRESET: UserLocation = {
@@ -27,6 +28,7 @@ export const SIDOARJO_PRESET: UserLocation = {
   displayName: "Jl. Gubernur Suryo, Sidokumpul, Kec. Sidoarjo, Kabupaten Sidoarjo",
   isp: "Kesiapsiagaan Komunitas Sidoarjo",
   source: "manual",
+  isLocked: true,
 };
 
 export const SURABAYA_PRESET: UserLocation = {
@@ -40,30 +42,58 @@ export const SURABAYA_PRESET: UserLocation = {
   displayName: "Kec. Gubeng, Kota Surabaya, Jawa Timur",
   isp: "Gateway Provider Surabaya",
   source: "manual",
+  isLocked: true,
 };
 
 export const SEMARANG_PRESET: UserLocation = {
   ip: "Presisi (Semarang)",
+  road: "Jl. Taman Siswa",
+  village: "Sekaran",
   district: "Gunungpati",
   city: "Kota Semarang",
   region: "Jawa Tengah",
   country: "Indonesia",
   latitude: -7.04921,
   longitude: 110.43825,
-  displayName: "Kec. Gunungpati, Kota Semarang, Jawa Tengah",
+  displayName: "Jl. Taman Siswa, Sekaran, Kec. Gunungpati, Kota Semarang",
   isp: "Komunitas Siaga Sekaran",
   source: "manual",
+  isLocked: true,
 };
 
 export const LOCATION_PRESETS: { label: string; location: UserLocation }[] = [
   { label: "Kabupaten Sidoarjo, Jawa Timur (Rekomendasi)", location: SIDOARJO_PRESET },
+  { label: "Kota Semarang, Jawa Tengah (Komunitas Sekaran)", location: SEMARANG_PRESET },
   { label: "Kota Surabaya, Jawa Timur", location: SURABAYA_PRESET },
-  { label: "Kota Semarang, Jawa Tengah", location: SEMARANG_PRESET },
 ];
 
 const DEFAULT_LOCATION: UserLocation = SIDOARJO_PRESET;
 
 let cachedLocation: UserLocation | null = null;
+const reverseGeocodeCache = new Map<string, any>();
+
+/**
+ * Hitung jarak antar dua koordinat dalam meter (Haversine formula)
+ */
+export function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // meter
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
 
 /**
  * Cek apakah pengguna sudah memberi izin deteksi lokasi
@@ -71,6 +101,22 @@ let cachedLocation: UserLocation | null = null;
 export function hasLocationPermission(): boolean {
   if (typeof window === "undefined") return false;
   return localStorage.getItem("naraga_location_permitted") === "true";
+}
+
+/**
+ * Ambil lokasi tersimpan dari storage lokal
+ */
+export function getStoredLocation(): UserLocation | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored =
+      localStorage.getItem("naraga_user_location") ||
+      sessionStorage.getItem("naraga_user_location");
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {}
+  return null;
 }
 
 /**
@@ -90,23 +136,28 @@ export function saveLocationPermission(granted: boolean): void {
 }
 
 /**
- * Simpan lokasi pilihan pengguna (misal jika IP provider meleset ke Surabaya)
+ * Simpan lokasi pilihan/presisi pengguna secara permanen (terkunci dari getaran Wi-Fi)
  */
 export function saveManualLocation(loc: UserLocation): void {
-  cachedLocation = loc;
+  const lockedLoc: UserLocation = {
+    ...loc,
+    isLocked: true,
+  };
+  cachedLocation = lockedLoc;
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem("naraga_location_permitted", "true");
-      localStorage.setItem("naraga_user_location", JSON.stringify(loc));
-      sessionStorage.setItem("naraga_user_location", JSON.stringify(loc));
-      window.dispatchEvent(new CustomEvent("naraga_location_changed", { detail: loc }));
+      localStorage.setItem("naraga_user_location", JSON.stringify(lockedLoc));
+      sessionStorage.setItem("naraga_user_location", JSON.stringify(lockedLoc));
+      window.dispatchEvent(
+        new CustomEvent("naraga_location_changed", { detail: lockedLoc })
+      );
     } catch {}
   }
 }
 
 /**
- * Reverse geocode koordinat lat/lng menjadi alamat presisi (Jalan, Kelurahan, Kecamatan, Kota, Provinsi)
- * Menggunakan internal API proxy /api/location/reverse
+ * Reverse geocode koordinat lat/lng menjadi alamat presisi dengan in-memory cache
  */
 export async function reverseGeocodeCoords(
   lat: number,
@@ -119,11 +170,17 @@ export async function reverseGeocodeCoords(
   region: string;
   displayName: string;
 }> {
+  // Key dibulatkan ke 4 desimal (~11 meter) untuk menghindari request berulang saat jitter
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (reverseGeocodeCache.has(cacheKey)) {
+    return reverseGeocodeCache.get(cacheKey);
+  }
+
   try {
     const res = await fetch(`/api/location/reverse?lat=${lat}&lon=${lng}`);
     if (res.ok) {
       const data = await res.json();
-      return {
+      const result = {
         road: data.road,
         village: data.village,
         district: data.district,
@@ -132,45 +189,112 @@ export async function reverseGeocodeCoords(
         displayName:
           data.displayName || `Koordinat ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
       };
+      reverseGeocodeCache.set(cacheKey, result);
+      return result;
     }
   } catch (err) {
     console.warn("Reverse geocode internal endpoint error:", err);
   }
 
-  return {
+  const fallback = {
     city: "Kabupaten Sidoarjo",
     region: "Jawa Timur",
     displayName: `Koordinat ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
   };
+  reverseGeocodeCache.set(cacheKey, fallback);
+  return fallback;
 }
 
 /**
- * Deteksi GPS langsung dengan akurasi tinggi (Hardware GPS / Wi-Fi trilateration)
+ * Deteksi GPS/Wi-Fi dengan peredam jitter khusus laptop:
+ * - Menggunakan multi-stage query (High Accuracy -> Standard Wi-Fi Fallback)
+ * - Mencegah koordinat melompat-lompat akibat fluktuasi sinyal router Wi-Fi
+ * - Menjaga titik stabil jika pergeseran sinyal < 80 meter
  */
 export async function getHighAccuracyGPSPosition(
-  timeoutMs = 15000
+  timeoutMs = 10000,
+  forceFresh = false
 ): Promise<UserLocation> {
   if (typeof window === "undefined" || !navigator.geolocation) {
-    throw new Error("Perangkat atau peramban tidak mendukung sensor geolokasi GPS");
+    throw new Error("Perangkat atau peramban tidak mendukung sensor geolokasi");
   }
 
-  const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve(p),
-      (err) => reject(err),
-      {
-        enableHighAccuracy: true,
-        timeout: timeoutMs,
-        maximumAge: 0,
-      }
-    );
-  });
+  // Jika sebelumnya lokasi sudah dikunci oleh pengguna (manual/pinpoint), dan tidak diminta paksa:
+  const stored = getStoredLocation();
+  if (!forceFresh && stored && stored.isLocked) {
+    cachedLocation = stored;
+    return stored;
+  }
 
-  const { latitude, longitude, accuracy } = pos.coords;
+  let pos: GeolocationPosition | null = null;
+
+  // Tahap 1: Coba High Accuracy Wi-Fi / GPS dengan toleransi cache 1 menit
+  try {
+    pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve(p),
+        (err) => reject(err),
+        {
+          enableHighAccuracy: true,
+          timeout: timeoutMs,
+          maximumAge: 60000, // Cegah scan Wi-Fi berulang setiap detik yang bikin koordinat bergetar
+        }
+      );
+    });
+  } catch (errHigh) {
+    // Tahap 2: Fallback Laptop - Standard Network Triangulation (Sangat andal & cepat di laptop Windows/Mac)
+    try {
+      pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve(p),
+          (err) => reject(err),
+          {
+            enableHighAccuracy: false,
+            timeout: 6000,
+            maximumAge: 120000,
+          }
+        );
+      });
+    } catch (errLow) {
+      throw errHigh;
+    }
+  }
+
+  if (!pos) {
+    throw new Error("Gagal memperoleh koordinat perangkat");
+  }
+
+  let { latitude, longitude, accuracy } = pos.coords;
+
+  // Tahap 3: Jitter Stabilization Filter (Peredam Getaran Sinyal Laptop)
+  // Jika sebelumnya sudah ada lokasi, dan perbedaannya di bawah 80 meter:
+  // JANGAN geser pin! Tetap gunakan koordinat yang sudah stabil agar tidak berubah-ubah.
+  if (stored && stored.latitude && stored.longitude) {
+    const dist = calculateDistanceMeters(
+      stored.latitude,
+      stored.longitude,
+      latitude,
+      longitude
+    );
+
+    if (dist < 80) {
+      latitude = stored.latitude;
+      longitude = stored.longitude;
+
+      const stabilizedLoc: UserLocation = {
+        ...stored,
+        accuracy: Math.round(accuracy || stored.accuracy || 15),
+        source: "gps",
+      };
+      cachedLocation = stabilizedLoc;
+      return stabilizedLoc;
+    }
+  }
+
   const rev = await reverseGeocodeCoords(latitude, longitude);
 
   const loc: UserLocation = {
-    ip: "GPS Perangkat Presisi",
+    ip: "Sensor Laptop (Stabil)",
     road: rev.road,
     village: rev.village,
     district: rev.district,
@@ -179,10 +303,11 @@ export async function getHighAccuracyGPSPosition(
     country: "Indonesia",
     latitude,
     longitude,
-    accuracy: Math.round(accuracy || 0),
+    accuracy: Math.round(accuracy || 15),
     displayName: rev.displayName,
-    isp: `Sensor GPS (Akurasi ±${Math.round(accuracy || 0)}m)`,
+    isp: `Sensor Perangkat Laptop (±${Math.round(accuracy || 15)}m)`,
     source: "gps",
+    isLocked: true,
   };
 
   saveManualLocation(loc);
@@ -190,105 +315,41 @@ export async function getHighAccuracyGPSPosition(
 }
 
 /**
- * Deteksi lokasi pengguna:
- * 1. Jika force=true: Langsung coba sensor GPS akurasi tinggi tanpa membaca cache lama
- * 2. Jika tidak force: Baca cache tersimpan
- * 3. Fallback ke IP Geolocation
+ * Deteksi lokasi pengguna yang stabil:
+ * 1. Prioritaskan cache tersimpan di localStorage (bebas lompatan)
+ * 2. Coba geolokasi terstabilkan browser
+ * 3. Fallback ke preset terpercaya (tanpa memanggil IP luar yang bisa melompat ke Jakarta/Surabaya)
  */
 export async function detectUserLocation(force = false): Promise<UserLocation> {
-  // Jika tidak force, gunakan cache memori jika ada
   if (cachedLocation && !force) {
     return cachedLocation;
   }
 
-  // 0. Cek localStorage & sessionStorage jika TIDAK force
+  // Cek localStorage jika tidak force
   if (!force && typeof window !== "undefined") {
-    try {
-      const stored =
-        localStorage.getItem("naraga_user_location") ||
-        sessionStorage.getItem("naraga_user_location");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed) {
-          cachedLocation = parsed;
-          return parsed;
-        }
-      }
-    } catch {
-      // Abaikan error storage
+    const stored = getStoredLocation();
+    if (stored) {
+      cachedLocation = stored;
+      return stored;
     }
   }
 
-  // 1. PRIORITAS UTAMA: Coba Sensor GPS Akurasi Tinggi
+  // Coba sensor geolokasi browser
   if (typeof window !== "undefined" && navigator.geolocation) {
     try {
-      const loc = await getHighAccuracyGPSPosition(10000);
+      const loc = await getHighAccuracyGPSPosition(8000, force);
       return loc;
-    } catch (gpsError) {
-      console.warn("GPS browser tidak aktif atau ditolak, beralih ke deteksi IP:", gpsError);
+    } catch (e) {
+      console.warn("Geolokasi browser ditolak atau offline, gunakan titik tersimpan:", e);
     }
   }
 
-  // 2. FALLBACK KE IP GEOLOCATION (ipwho.is)
-  try {
-    const res = await fetch("https://ipwho.is/", { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success) {
-        const loc: UserLocation = {
-          ip: data.ip,
-          city: data.city || "Kabupaten Sidoarjo",
-          region: data.region || "Jawa Timur",
-          country: data.country || "Indonesia",
-          latitude: Number(data.latitude) || DEFAULT_LOCATION.latitude,
-          longitude: Number(data.longitude) || DEFAULT_LOCATION.longitude,
-          isp: data.connection?.isp || data.connection?.org,
-          displayName: `${data.city || "Kabupaten Sidoarjo"}, ${data.region || "Jawa Timur"}`,
-          source: "ip",
-        };
-        cachedLocation = loc;
-        if (typeof window !== "undefined") {
-          try {
-            sessionStorage.setItem("naraga_user_location", JSON.stringify(loc));
-          } catch {}
-        }
-        return loc;
-      }
-    }
-  } catch (e) {
-    console.warn("ipwho.is detection failed, trying fallback:", e);
+  // Jika pernah ada titik tersimpan, gunakan itu
+  const existing = getStoredLocation();
+  if (existing) {
+    cachedLocation = existing;
+    return existing;
   }
 
-  // 3. Backup provider: ipapi.co
-  try {
-    const res = await fetch("https://ipapi.co/json/", { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.ip) {
-        const loc: UserLocation = {
-          ip: data.ip,
-          city: data.city || "Kabupaten Sidoarjo",
-          region: data.region || "Jawa Timur",
-          country: data.country_name || "Indonesia",
-          latitude: Number(data.latitude) || DEFAULT_LOCATION.latitude,
-          longitude: Number(data.longitude) || DEFAULT_LOCATION.longitude,
-          isp: data.org,
-          displayName: `${data.city || "Kabupaten Sidoarjo"}, ${data.region || "Jawa Timur"}`,
-          source: "ip",
-        };
-        cachedLocation = loc;
-        if (typeof window !== "undefined") {
-          try {
-            sessionStorage.setItem("naraga_user_location", JSON.stringify(loc));
-          } catch {}
-        }
-        return loc;
-      }
-    }
-  } catch (e) {
-    console.warn("ipapi.co detection failed:", e);
-  }
-
-  return SIDOARJO_PRESET;
+  return DEFAULT_LOCATION;
 }
-

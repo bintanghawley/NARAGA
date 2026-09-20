@@ -14,10 +14,6 @@ export default async function SettingsPage() {
     where: { id: session.user.id },
     include: {
       community: true,
-      assessmentSessions: {
-        orderBy: { completedAt: "desc" },
-        take: 10,
-      },
     },
   });
 
@@ -28,14 +24,6 @@ export default async function SettingsPage() {
   const allCommunities = await prisma.community.findMany({
     orderBy: { name: "asc" },
   });
-
-  const history = user.assessmentSessions.map((s) => ({
-    id: s.id,
-    score: s.score,
-    completedAt: s.completedAt ? s.completedAt.toISOString() : null,
-    facilityGapCount: s.facilityGapCount,
-    awarenessGapCount: s.awarenessGapCount,
-  }));
 
   return (
     <SettingsClient
@@ -48,7 +36,6 @@ export default async function SettingsPage() {
         community: user.community,
       }}
       communities={allCommunities}
-      history={history}
     />
   );
 }

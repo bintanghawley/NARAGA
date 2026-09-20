@@ -50,7 +50,8 @@ export default function ActionPlanSection({
             return (
               <div
                 key={item.id || index}
-                className="py-5 first:pt-0 last:pb-0 transition-all"
+                style={{ animationDelay: `${index * 80 + 100}ms` }}
+                className="py-5 first:pt-0 last:pb-0 transition-all animate-emerge"
               >
                 <div className="flex items-start gap-4">
                   {/* Checkbox / Circle */}

@@ -3,18 +3,13 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import {
-  Compass,
-  Bot,
-  Settings,
   ClipboardList,
   ArrowRight,
-  Shield,
-  AlertTriangle,
-  CheckCircle2,
-  Sparkles,
 } from "lucide-react";
 import DashboardClientActions from "./DashboardClientActions";
 import ActionPlanSection, { ActionPlanItem } from "./ActionPlanSection";
+import DashboardSidebar from "@/components/DashboardSidebar";
+import DashboardOverviewCards from "./DashboardOverviewCards";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -130,42 +125,10 @@ export default async function DashboardPage() {
         {/* ======================================================== */}
         {/* 1. SIDEBAR KIRI (Floating White Card Sesuai Desain Figma) */}
         {/* ======================================================== */}
-        <aside className="w-full lg:w-64 bg-white rounded-[28px] p-4 shadow-sm border border-gray-100 flex-shrink-0 space-y-2">
-          {/* Menu 1: Overview (Aktif - Deep Teal Pill) */}
-          <Link
-            href="/dashboard"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[#0e6f68] text-white font-semibold text-sm shadow-xs transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center">
-              <Compass className="w-5 h-5 text-white" />
-            </div>
-            <span>Overview</span>
-          </Link>
-
-          {/* Menu 2: Tanya AI ✨ */}
-          <Link
-            href="/ai"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Bot className="w-5 h-5" />
-            </div>
-            <span className="flex items-center gap-1.5">
-              Tanya AI <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            </span>
-          </Link>
-
-          {/* Menu 3: Settings */}
-          <Link
-            href="/settings"
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
-          >
-            <div className="w-5 h-5 flex items-center justify-center text-gray-600">
-              <Settings className="w-5 h-5" />
-            </div>
-            <span>Settings</span>
-          </Link>
-        </aside>
+        {/* ======================================================== */}
+        {/* 1. SIDEBAR KIRI FIXED & ANIMASI SLIDING HIJAU             */}
+        {/* ======================================================== */}
+        <DashboardSidebar />
 
         {/* ======================================================== */}
         {/* 2. KONTEN UTAMA KANAN                                     */}
@@ -177,12 +140,12 @@ export default async function DashboardPage() {
           {!hasTakenTest ? (
             <>
               {/* Sapaan Awal */}
-              <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
+              <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight animate-emerge">
                 Welcome , {firstName}
               </h1>
 
               {/* Banner 1: Lakukan Tes (Mint Green Card) */}
-              <div className="bg-[#d7f5ef] border border-[#a2ecd8] rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 transition-all">
+              <div className="bg-[#d7f5ef] border border-[#a2ecd8] rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 transition-all animate-emerge stagger-1">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-[#bbf0e4] flex items-center justify-center flex-shrink-0 text-[#0e6f68] mt-0.5">
                     <ClipboardList className="w-5 h-5" />
@@ -207,84 +170,27 @@ export default async function DashboardPage() {
               </div>
 
               {/* Banner 2: Tentukan Lingkungan Tempat Tinggal Anda (Peach Card) */}
-              <DashboardClientActions
-                communities={allCommunities}
-                userId={user.id}
-                userCommunity={user.community}
-                userRole={user.role}
-                pendingApplication={pendingApplication}
-                showLocationBanner={true}
-                showPengurusBanner={false}
-              />
-
-              {/* 3 Summary Cards Placeholder State */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Card 1: Kesiapsiagaan lingkungan */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
-                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                    <Shield className="w-4 h-4 text-gray-700" />
-                    <span>Kesiapsiagaan lingkungan</span>
-                  </div>
-
-                  <div className="my-6 flex items-center justify-center">
-                    <div className="relative w-32 h-32 flex items-center justify-center">
-                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="transparent"
-                          stroke="#dbe7f2"
-                          strokeWidth="10"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="text-[11px] font-medium text-gray-500">Skor</span>
-                        <span className="text-xl sm:text-2xl font-black text-gray-900">--</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-2xl font-extrabold text-gray-900 tracking-tight">Belum ada</p>
-                    <p className="text-xs text-gray-500 mt-1">Akan tampil skor kesiapan lingkunganmu</p>
-                  </div>
-                </div>
-
-                {/* Card 2: Kesenjangan Fasilitas */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
-                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                    <AlertTriangle className="w-4 h-4 text-gray-700" />
-                    <span>Kesenjangan Fasilitas</span>
-                  </div>
-
-                  <div className="my-10 flex items-center justify-center">
-                    <div className="w-6 h-1.5 bg-red-500 rounded-full" />
-                  </div>
-
-                  <div>
-                    <p className="text-2xl font-extrabold text-gray-900 tracking-tight">Belum ada</p>
-                    <p className="text-xs text-gray-500 mt-1">Akan tampil jumlah kesenjangan fasilitas</p>
-                  </div>
-                </div>
-
-                {/* Card 3: Kesenjangan Pemahaman */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
-                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-gray-700" />
-                    <span>Kesenjangan Pemahaman</span>
-                  </div>
-
-                  <div className="my-10 flex items-center justify-center">
-                    <div className="w-6 h-1.5 bg-[#0e6f68] rounded-full" />
-                  </div>
-
-                  <div>
-                    <p className="text-2xl font-extrabold text-gray-900 tracking-tight">Cukup Siap</p>
-                    <p className="text-xs text-gray-500 mt-1">Akan tampil jumlah kesenjangan pemahaman</p>
-                  </div>
-                </div>
+              <div className="animate-emerge stagger-2">
+                <DashboardClientActions
+                  communities={allCommunities}
+                  userId={user.id}
+                  userCommunity={user.community}
+                  userRole={user.role}
+                  pendingApplication={pendingApplication}
+                  showLocationBanner={true}
+                  showPengurusBanner={false}
+                />
               </div>
+
+              {/* 3 Summary Cards Placeholder State dengan Animasi Terbit */}
+              <DashboardOverviewCards
+                hasTakenTest={false}
+                score={0}
+                scoreTitle=""
+                scoreDesc=""
+                facilityGaps={0}
+                metCount={0}
+              />
             </>
           ) : (
             /* ---------------------------------------------------- */
@@ -292,7 +198,7 @@ export default async function DashboardPage() {
             /* ---------------------------------------------------- */
             <>
               {/* Sapaan Welcome back & Detail Komunitas */}
-              <div className="space-y-1">
+              <div className="space-y-1 animate-emerge">
                 <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
                   Welcome back, {firstName}
                 </h1>
@@ -301,121 +207,33 @@ export default async function DashboardPage() {
                 </p>
               </div>
 
-              {/* 3 Summary Cards State Hasil Tes */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Card 1: Kesiapsiagaan lingkungan (Orange Donut Meter) */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
-                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                    <Shield className="w-4 h-4 text-gray-700" />
-                    <span>Kesiapsiagaan lingkungan</span>
-                  </div>
+              {/* 3 Summary Cards State Hasil Tes dengan Animasi Terbit & Count-Up */}
+              <DashboardOverviewCards
+                hasTakenTest={true}
+                score={displayScore}
+                scoreTitle={scoreTitle}
+                scoreDesc={scoreDesc}
+                facilityGaps={displayFacilityGaps}
+                metCount={displayMetCount}
+              />
 
-                  {/* Circular Orange Donut Sesuai Figma */}
-                  <div className="my-6 flex items-center justify-center">
-                    <div className="relative w-32 h-32 flex items-center justify-center">
-                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="38"
-                          fill="transparent"
-                          stroke="#f3f4f6"
-                          strokeWidth="11"
-                        />
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="38"
-                          fill="transparent"
-                          stroke="#f5840d"
-                          strokeWidth="11"
-                          strokeDasharray={238.76}
-                          strokeDashoffset={238.76 * (1 - displayScore / 100)}
-                          strokeLinecap="round"
-                          className="transition-all duration-1000"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="text-xs font-medium text-gray-400">Skor</span>
-                        <span className="text-2xl sm:text-3xl font-extrabold text-[#f5840d]">
-                          {displayScore}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-2xl font-black text-gray-900 tracking-tight">
-                      {scoreTitle}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                      {scoreDesc}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card 2: Kesenjangan Fasilitas (Big Red 3 Number Sesuai Figma) */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
-                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                    <AlertTriangle className="w-4 h-4 text-gray-700" />
-                    <span>Kesenjangan Fasilitas</span>
-                  </div>
-
-                  {/* Red Big Number Left Aligned */}
-                  <div className="my-6 flex items-center justify-start">
-                    <span className="text-4xl sm:text-5xl font-extrabold text-red-500 tracking-tight">
-                      {displayFacilityGaps}
-                    </span>
-                  </div>
-
-                  <div>
-                    <p className="text-2xl font-black text-gray-900 tracking-tight">
-                      Belum Tersedia
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                      Fasilitas keselamatan yang masih perlu disediakan.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card 3: Kesenjangan Pemahaman (Big Teal 8 Number Sesuai Figma) */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[300px]">
-                  <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-gray-700" />
-                    <span>Kesenjangan Pemahaman</span>
-                  </div>
-
-                  {/* Teal Big Number Left Aligned */}
-                  <div className="my-6 flex items-center justify-start">
-                    <span className="text-4xl sm:text-5xl font-extrabold text-[#0e6f68] tracking-tight">
-                      {displayMetCount}
-                    </span>
-                  </div>
-
-                  <div>
-                    <p className="text-2xl font-black text-gray-900 tracking-tight">
-                      Sudah Terpenuhi
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                      Aspek kesiapsiagaan yang sudah terpenuhi di lingkungan.
-                    </p>
-                  </div>
-                </div>
+              {/* Seksi Action Plan Interaktif dengan Animasi Terbit Bertahap */}
+              <div className="animate-emerge stagger-4">
+                <ActionPlanSection initialItems={actionPlanItems} />
               </div>
 
-              {/* Seksi Action Plan Interaktif */}
-              <ActionPlanSection initialItems={actionPlanItems} />
-
               {/* Banner Pengurus Lingkungan & Modal Actions */}
-              <DashboardClientActions
-                communities={allCommunities}
-                userId={user.id}
-                userCommunity={user.community}
-                userRole={user.role}
-                pendingApplication={pendingApplication}
-                showLocationBanner={false}
-                showPengurusBanner={true}
-              />
+              <div className="animate-emerge stagger-5">
+                <DashboardClientActions
+                  communities={allCommunities}
+                  userId={user.id}
+                  userCommunity={user.community}
+                  userRole={user.role}
+                  pendingApplication={pendingApplication}
+                  showLocationBanner={false}
+                  showPengurusBanner={true}
+                />
+              </div>
             </>
           )}
         </main>

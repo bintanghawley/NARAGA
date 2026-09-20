@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { ArrowRight, Menu, X, LogOut, ChevronDown, Shield, Sparkles, User, Settings } from "lucide-react";
+import { ArrowRight, Menu, X, LogOut, ChevronDown, Shield, Sparkles, User, Settings, MapPin } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 
@@ -27,6 +27,8 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const [navAvatar, setNavAvatar] = useState<string>("/images/avatar-evan.jpg");
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const checkResult = () => {
@@ -35,7 +37,22 @@ export default function Navbar() {
       };
       checkResult();
       window.addEventListener("popstate", checkResult);
-      return () => window.removeEventListener("popstate", checkResult);
+
+      const saved = localStorage.getItem("naraga_user_avatar");
+      if (saved) {
+        setNavAvatar(saved);
+      }
+      const handleAvatar = (e: any) => {
+        if (e.detail) {
+          setNavAvatar(e.detail);
+        }
+      };
+      window.addEventListener("naraga_avatar_changed", handleAvatar);
+
+      return () => {
+        window.removeEventListener("popstate", checkResult);
+        window.removeEventListener("naraga_avatar_changed", handleAvatar);
+      };
     }
   }, [pathname]);
 
@@ -60,6 +77,7 @@ export default function Navbar() {
       label: isResultView ? "Hasil Kesiapanmu" : "Tes Kesiapsiagaan",
       href: isResultView ? "/assessment?view=result" : "/assessment",
     },
+    { label: "Peta Evakuasi", href: "/map" },
   ];
 
   const currentNavLinks = isAuthUser ? authNavLinks : publicNavLinks;
@@ -79,34 +97,31 @@ export default function Navbar() {
             el.scrollIntoView({ behavior: "smooth" });
           }
         }
-        if (mobileMenuOpen) {
-          setMobileMenuOpen(false);
-        }
       } else {
-        if (mobileMenuOpen) {
-          setMobileMenuOpen(false);
-        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } else {
-      if (mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
+      // Tombol navbar saat ditekan langsung scroll paling atas
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    if (mobileMenuOpen) {
+      setMobileMenuOpen(false);
     }
   };
 
   return (
     <header className="bg-white/95 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100 transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        {/* 1. Brand Logo (Kiri) - Smooth scroll ke atas jika di home */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between relative">
+        {/* 1. Brand Logo (Kiri) - Smooth scroll ke paling atas */}
         <Link
           href="/"
           onClick={(e) => {
             if (pathname === "/") {
               e.preventDefault();
-              window.scrollTo({ top: 0, behavior: "smooth" });
             }
+            window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="flex items-center group py-1"
+          className="flex items-center group py-1 z-10"
         >
           <img
             src="/images/naraga-logo.png"
@@ -115,8 +130,8 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* 2. Center Navigation Links (Tengah - Sesuai Figma & Smooth Scroll) */}
-        <nav className="hidden md:flex items-center gap-8 lg:gap-10 text-sm">
+        {/* 2. Center Navigation Links (Tengah Presisi Sempurna) */}
+        <nav className="hidden md:flex items-center gap-8 lg:gap-10 text-sm absolute left-1/2 -translate-x-1/2">
           {currentNavLinks.map((link) => {
             const linkPath = link.href.split("?")[0];
             const isActive =
@@ -130,7 +145,7 @@ export default function Navbar() {
                 key={link.label}
                 href={link.href}
                 onClick={(e) => handleNavClick(e, link.href)}
-                className={`py-1.5 transition-all text-sm cursor-pointer ${
+                className={`py-1.5 transition-all text-sm cursor-pointer whitespace-nowrap ${
                   isActive && isAuthUser
                     ? "text-gray-900 font-bold border-b-[3px] border-[#0e6f68] pb-1"
                     : "text-gray-600 hover:text-[#0e6f68] font-medium"
@@ -143,40 +158,60 @@ export default function Navbar() {
         </nav>
 
         {/* 3. Action / Profile (Kanan - Sesuai Figma) */}
-        <div className="hidden md:flex items-center gap-4">
-          {isAuthUser ? (
-            /* User Profile Pill Dropdown (Sesuai Desain Figma: Chevron ▼ + Nama + Avatar) */
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2.5 py-1.5 px-2 rounded-full hover:bg-gray-50 transition cursor-pointer group"
-                aria-expanded={profileDropdownOpen}
-              >
-                <ChevronDown className="w-4 h-4 text-gray-700 group-hover:text-gray-900 transition-transform duration-200" />
-                <span className="text-sm font-bold text-gray-900 tracking-tight">
-                  {user?.name || "Evan Mahardika"}
-                </span>
-                <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 bg-teal-50 flex-shrink-0 shadow-xs">
-                  <img
-                    src="/images/avatar-evan.jpg"
-                    alt={user?.name || "Evan"}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback jika gambar gagal termuat
-                      (e.target as HTMLImageElement).src =
-                        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80";
-                    }}
-                  />
-                </div>
-              </button>
+        <div className="hidden md:flex items-center gap-4 z-10">
+          {isAuthUser ? (() => {
+            const rawName = user?.name || "Evan Mahardika";
+            const nameMatch = rawName.match(/^(.*?)\s*\((.*?)\)\s*$/);
+            const cleanNavName = nameMatch ? nameMatch[1].trim() : rawName;
+            const roleTitleNav = nameMatch ? nameMatch[2].trim() : (user?.role || "WARGA");
 
-              {/* Dropdown Menu Box */}
-              {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50 animate-in fade-in slide-in-from-top-2">
+            return (
+              /* User Profile Pill Dropdown (Sesuai Desain Figma: Chevron ▼ + Nama + Avatar) */
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  className="flex items-center gap-2.5 py-1.5 px-2 rounded-full hover:bg-gray-50 transition cursor-pointer group"
+                  aria-expanded={profileDropdownOpen}
+                >
+                  <ChevronDown
+                    className={`w-4 h-4 text-gray-700 group-hover:text-gray-900 transition-transform duration-300 ${
+                      profileDropdownOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                  />
+                  <span className="text-sm font-bold text-gray-900 tracking-tight">
+                    {cleanNavName}
+                  </span>
+                  <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 bg-teal-50 flex-shrink-0 shadow-xs">
+                    <img
+                      src={navAvatar}
+                      alt={cleanNavName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback jika gambar gagal termuat
+                        (e.target as HTMLImageElement).src =
+                          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80";
+                      }}
+                    />
+                  </div>
+                </button>
+
+                {/* Dropdown Menu Box dengan animasi halus (Smooth Spring Pop-up) */}
+                <div
+                  className={`absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50 origin-top-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                    profileDropdownOpen
+                      ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                      : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                  }`}
+                >
                   <div className="px-4 py-2 border-b border-gray-100 space-y-1">
                     <p className="text-sm font-bold text-gray-900 truncate">
-                      {user?.name || "Evan Mahardika"}
+                      {cleanNavName}
                     </p>
+                    {nameMatch && (
+                      <p className="text-xs font-semibold text-[#0e6f68] truncate">
+                        {roleTitleNav}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-500 truncate">
                       {user?.email || "warga@naraga.id"}
                     </p>
@@ -190,15 +225,32 @@ export default function Navbar() {
                   <div className="py-1">
                     <Link
                       href="/dashboard"
-                      onClick={() => setProfileDropdownOpen(false)}
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
                     >
                       <User className="w-3.5 h-3.5" />
                       Dashboard Saya
                     </Link>
                     <Link
+                      href="/map"
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-[#0e6f68]" />
+                      Peta Evakuasi
+                    </Link>
+                    <Link
                       href="/ai"
-                      onClick={() => setProfileDropdownOpen(false)}
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -206,7 +258,10 @@ export default function Navbar() {
                     </Link>
                     <Link
                       href="/settings"
-                      onClick={() => setProfileDropdownOpen(false)}
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
                     >
                       <Settings className="w-3.5 h-3.5 text-[#0e6f68]" />
@@ -215,7 +270,10 @@ export default function Navbar() {
                     {user?.role === "ADMIN" && (
                       <Link
                         href="/admin"
-                        onClick={() => setProfileDropdownOpen(false)}
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
                         className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50 transition"
                       >
                         <Shield className="w-3.5 h-3.5" />
@@ -227,25 +285,27 @@ export default function Navbar() {
                   <div className="pt-1 border-t border-gray-100">
                     <button
                       onClick={() => signOut({ callbackUrl: "/" })}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       Keluar (Sign Out)
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
-          ) : (
+              </div>
+            );
+          })() : (
             <>
               <Link
                 href="/login"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                 className="px-6 lg:px-7 py-2 rounded-full border border-[#0e6f68] text-[#0e6f68] hover:bg-teal-50/70 font-semibold text-sm transition"
               >
                 Masuk
               </Link>
               <Link
                 href="/login?callbackUrl=/assessment"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                 className="inline-flex items-center gap-2 px-6 lg:px-7 py-2 rounded-full bg-[#0e6f68] hover:bg-[#0a524d] text-white font-semibold text-sm shadow-sm hover:shadow transition transform active:scale-[0.98]"
               >
                 <span>Mulai Tes</span>
@@ -260,14 +320,15 @@ export default function Navbar() {
           {!isAuthUser ? (
             <Link
               href="/login"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               className="px-4 py-1.5 rounded-full border border-[#0e6f68] text-[#0e6f68] font-semibold text-xs"
             >
               Masuk
             </Link>
           ) : (
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 shadow-2xs">
               <img
-                src="/images/avatar-evan.jpg"
+                src={navAvatar}
                 alt="Avatar"
                 className="w-full h-full object-cover"
               />
@@ -286,19 +347,26 @@ export default function Navbar() {
       {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white px-5 py-4 space-y-3 shadow-xl animate-in slide-in-from-top-2">
-          {isAuthUser && (
-            <div className="pb-3 border-b border-gray-100 flex items-center gap-3">
-              <img
-                src="/images/avatar-evan.jpg"
-                alt="Avatar"
-                className="w-10 h-10 rounded-full object-cover border border-teal-100"
-              />
-              <div>
-                <p className="text-sm font-bold text-gray-900">{user?.name || "Evan Mahardika"}</p>
-                <p className="text-xs text-gray-500">{user?.role || "WARGA"}</p>
+          {isAuthUser && (() => {
+            const rawName = user?.name || "Evan Mahardika";
+            const nameMatch = rawName.match(/^(.*?)\s*\((.*?)\)\s*$/);
+            const cleanNavName = nameMatch ? nameMatch[1].trim() : rawName;
+            const roleTitleNav = nameMatch ? nameMatch[2].trim() : (user?.role || "WARGA");
+
+            return (
+              <div className="pb-3 border-b border-gray-100 flex items-center gap-3">
+                <img
+                  src={navAvatar}
+                  alt={cleanNavName}
+                  className="w-10 h-10 rounded-full object-cover border border-teal-100 shadow-2xs"
+                />
+                <div>
+                  <p className="text-sm font-bold text-gray-900">{cleanNavName}</p>
+                  <p className="text-xs text-[#0e6f68] font-medium">{roleTitleNav}</p>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <nav className="flex flex-col space-y-2">
             {currentNavLinks.map((link) => (
@@ -311,6 +379,24 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+            {isAuthUser && (
+              <>
+                <Link
+                  href="/ai"
+                  onClick={(e) => handleNavClick(e, "/ai")}
+                  className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:text-[#0e6f68] hover:bg-teal-50 transition cursor-pointer"
+                >
+                  Tanya Asisten AI
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={(e) => handleNavClick(e, "/settings")}
+                  className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:text-[#0e6f68] hover:bg-teal-50 transition cursor-pointer"
+                >
+                  Pengaturan
+                </Link>
+              </>
+            )}
           </nav>
           <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
             {isAuthUser ? (
@@ -324,7 +410,10 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/login?callbackUrl=/assessment"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
                 className="w-full py-2.5 rounded-full bg-[#0e6f68] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
               >
                 <span>Mulai Tes</span>

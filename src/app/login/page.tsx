@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
+import TypewriterHeading from "@/components/TypewriterHeading";
 
 export default function LoginPage() {
   return (
@@ -74,7 +75,7 @@ function LoginForm() {
         </div>
 
         {/* Brand Header */}
-        <div className="relative z-10 animate-fade-in-down">
+        <div className="relative z-10 animate-emerge">
           <Link href="/" className="inline-block group py-1">
             <img
               src="/images/naraga-logo-white.png?v=2"
@@ -84,14 +85,10 @@ function LoginForm() {
           </Link>
         </div>
 
-        {/* Hero Typography Sisi Kiri */}
-        <div className="relative z-10 my-auto py-12 lg:py-0 animate-fade-in-up">
-          <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-black text-white leading-[1.08] tracking-tight">
-            Selamat<br />
-            Datang<br />
-            Kembali
-          </h1>
-          <p className="text-xs sm:text-sm text-teal-100/85 font-normal leading-relaxed max-w-sm mt-6 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+        {/* Hero Typography Sisi Kiri dengan Animasi Typing */}
+        <div className="relative z-10 my-auto py-12 lg:py-0">
+          <TypewriterHeading lines={["Selamat", "Datang", "Kembali"]} />
+          <p className="text-xs sm:text-sm text-teal-100/85 font-normal leading-relaxed max-w-sm mt-6 animate-emerge stagger-2">
             Akses hasil assessment, pantau perkembangan kesiapsiagaan, dan kelola langkah perbaikan lingkunganmu
           </p>
         </div>
@@ -105,7 +102,7 @@ function LoginForm() {
       {/* 2. SISI KANAN: Soft Blue Gradient Background dengan Floating White Card */}
       <div className="lg:col-span-7 xl:col-span-7 bg-gradient-to-br from-[#ebf5fb] via-[#f1f7fc] to-[#e4f1fa] flex flex-col justify-between p-6 sm:p-8 lg:p-12 min-h-[600px] lg:min-h-screen relative">
         {/* Tombol Kembali di Bagian Atas Sisi Kanan (Area Putih/Terang) */}
-        <div className="w-full flex items-center justify-start z-10 animate-fade-in-down">
+        <div className="w-full flex items-center justify-start z-10 animate-emerge">
           <Link
             href="/"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 text-gray-700 hover:text-[#0e6f68] text-xs sm:text-sm font-semibold transition shadow-xs border border-gray-200/80 group"
@@ -115,9 +112,9 @@ function LoginForm() {
           </Link>
         </div>
 
-        {/* Floating White Card di Tengah */}
+        {/* Floating White Card di Tengah (Animasi Terbit / Emerge) */}
         <div className="my-auto flex justify-center py-4 w-full">
-          <div className="bg-white rounded-[28px] sm:rounded-[34px] shadow-[0_20px_50px_rgba(15,80,75,0.07)] border border-slate-100/90 p-8 sm:p-12 w-full max-w-[460px] space-y-6 animate-card-entrance">
+          <div className="bg-white rounded-[28px] sm:rounded-[34px] shadow-[0_20px_50px_rgba(15,80,75,0.07)] border border-slate-100/90 p-8 sm:p-12 w-full max-w-[460px] space-y-6 animate-emerge stagger-1">
             <div className="text-center">
               <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                 Login
