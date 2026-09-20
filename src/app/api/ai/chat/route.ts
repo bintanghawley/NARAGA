@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { message, sessionId, communityId } = result.data;
+    const { message, sessionId, communityId, userLocation } = result.data;
 
     let targetCommunityId = communityId || (session?.user as any)?.communityId;
     let readinessScore: number | undefined = undefined;
@@ -77,6 +77,7 @@ export async function POST(req: Request) {
       facilityGaps,
       awarenessGaps,
       userRole: (session?.user as any)?.role || "Warga",
+      userLocation,
     });
 
     return NextResponse.json({
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
         readinessScore: readinessScore ?? null,
         facilityGapCount: facilityGaps.length,
         awarenessGapCount: awarenessGaps.length,
+        userLocation: userLocation || null,
       },
     });
   } catch (error) {

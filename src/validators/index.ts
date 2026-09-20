@@ -84,4 +84,20 @@ export const aiChatSchema = z.object({
   sessionId: z.string().optional(),
   communityId: z.string().optional(),
   message: z.string().min(1, "Pesan tidak boleh kosong"),
+  userLocation: z
+    .object({
+      ip: z.string().optional(),
+      road: z.string().optional(),
+      village: z.string().optional(),
+      district: z.string().optional(),
+      city: z.string().optional(),
+      region: z.string().optional(),
+      country: z.string().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
+      accuracy: z.number().optional(),
+      displayName: z.string().optional(),
+      isp: z.string().optional(),
+    })
+    .optional(),
 });
