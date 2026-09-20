@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { ArrowRight, Menu, X, LogOut, ChevronDown, Shield, Sparkles, User } from "lucide-react";
+import { ArrowRight, Menu, X, LogOut, ChevronDown, Shield, Sparkles, User, Settings } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 
@@ -81,7 +81,8 @@ export default function Navbar() {
             const linkPath = link.href.split("?")[0];
             const isActive =
               pathname === linkPath ||
-              (linkPath === "/dashboard" && pathname.startsWith("/ai")) ||
+              (linkPath === "/dashboard" &&
+                (pathname.startsWith("/ai") || pathname.startsWith("/settings"))) ||
               (linkPath !== "/" && pathname.startsWith(linkPath));
 
             return (
@@ -161,6 +162,14 @@ export default function Navbar() {
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                       Tanya Asisten AI
+                    </Link>
+                    <Link
+                      href="/settings"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50/60 hover:text-[#0e6f68] transition"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-[#0e6f68]" />
+                      Pengaturan (Settings)
                     </Link>
                     {user?.role === "ADMIN" && (
                       <Link

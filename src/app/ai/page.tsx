@@ -299,7 +299,7 @@ function AIChatContent() {
 
           {/* Menu 3: Settings (Inactive) */}
           <Link
-            href="/dashboard#settings"
+            href="/settings"
             className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium text-sm transition"
           >
             <div className="w-5 h-5 flex items-center justify-center text-gray-600">

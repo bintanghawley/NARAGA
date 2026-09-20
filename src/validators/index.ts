@@ -12,6 +12,17 @@ export const registerSchema = z.object({
   password: z.string().min(6, "Password minimal 6 karakter"),
 });
 
+export const updateProfileSchema = z.object({
+  name: z.string().min(2, "Nama minimal 2 karakter").optional(),
+  email: z.string().email("Format email tidak valid").optional(),
+  communityId: z.string().nullable().optional(),
+});
+
+export const updatePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Password saat ini wajib diisi"),
+  newPassword: z.string().min(6, "Password baru minimal 6 karakter"),
+});
+
 // Komunitas / Lingkungan
 export const createCommunitySchema = z.object({
   name: z.string().min(3, "Nama lingkungan minimal 3 karakter"),

@@ -15,11 +15,13 @@ export default function Footer({ showCtaBanner = true }: { showCtaBanner?: boole
     pathname === "/dashboard" ||
     pathname.startsWith("/assessment") ||
     pathname === "/ai" ||
-    pathname === "/map";
+    pathname === "/map" ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/admin");
   const shouldShowCta = showCtaBanner && !isCleanFooterPage;
 
   return (
-    <div className="relative w-full bg-white overflow-hidden">
+    <div className="relative w-full bg-transparent overflow-hidden">
       {/* 1. Wave SVG Header Divider (White to Deep Teal #0e6f68) */}
       {shouldShowCta && (
         <div className="w-full leading-none overflow-hidden bg-white">
