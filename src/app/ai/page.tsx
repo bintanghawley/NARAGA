@@ -50,14 +50,54 @@ function AIChatContent() {
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const hasStartedChat = messages.some((m) => m.role === "user");
+  const [cardHeight, setCardHeight] = useState<number | undefined>(undefined);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior,
+      });
+    }
   };
 
+  // Measure initial compact height on mount, or set expanded height if already chatted
   useEffect(() => {
-    scrollToBottom();
+    if (!hasStartedChat && cardRef.current) {
+      setCardHeight(cardRef.current.offsetHeight);
+    } else if (hasStartedChat) {
+      const target = Math.min(Math.max(window.innerHeight - 210, 520), 640);
+      setCardHeight(target);
+    }
+  }, []);
+
+  // Responsive height adjustment on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (hasStartedChat) {
+        setCardHeight(Math.min(Math.max(window.innerHeight - 210, 520), 640));
+      } else if (cardRef.current) {
+        setCardHeight(cardRef.current.offsetHeight);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [hasStartedChat]);
+
+  // Smooth scroll to bottom when messages update
+  useEffect(() => {
+    if (hasStartedChat) {
+      scrollToBottom();
+      const t1 = setTimeout(() => scrollToBottom(), 150);
+      const t2 = setTimeout(() => scrollToBottom(), 520);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
   }, [messages, loading]);
 
   useEffect(() => {
@@ -77,6 +117,12 @@ function AIChatContent() {
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || input;
     if (!textToSend.trim() || loading) return;
+
+    // Trigger smooth expansion to full canvas height immediately
+    if (!hasStartedChat) {
+      const target = Math.min(Math.max(window.innerHeight - 210, 520), 640);
+      setCardHeight(target);
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -140,7 +186,7 @@ function AIChatContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#ebf4fa] py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#ebf4fa] py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-6 lg:gap-8">
         {/* ======================================================== */}
         {/* 1. SIDEBAR KIRI (Floating White Card Sesuai Desain Figma) */}
@@ -185,7 +231,7 @@ function AIChatContent() {
         {/* ======================================================== */}
         {/* 2. KONTEN UTAMA KANAN (Talk With NARAGA.AI)               */}
         {/* ======================================================== */}
-        <main className="flex-1 w-full space-y-6">
+        <main className="flex-1 w-full space-y-5">
           {/* Header Title & Subtitle */}
           <div className="space-y-1">
             <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight">
@@ -197,16 +243,29 @@ function AIChatContent() {
           </div>
 
           {/* Main Chat Box Container (Floating White Card Sesuai Figma) */}
-          <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-gray-100 shadow-sm flex flex-col justify-between min-h-[580px]">
+          <div
+            ref={cardRef}
+            style={{
+              height: cardHeight ? `${cardHeight}px` : undefined,
+            }}
+            className="bg-white rounded-[32px] p-5 sm:p-7 border border-gray-100 shadow-sm flex flex-col transition-[height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden will-change-[height]"
+          >
             {/* Conversation Messages Area */}
-            <div className="flex-1 overflow-y-auto space-y-6 pr-1 max-h-[520px]">
+            <div
+              ref={chatContainerRef}
+              className={`space-y-6 pr-2 custom-scrollbar ${
+                hasStartedChat
+                  ? "flex-1 min-h-0 overflow-y-auto"
+                  : "overflow-visible"
+              }`}
+            >
               {messages.map((m) => {
                 const isAI = m.role === "assistant";
 
                 return (
                   <div
                     key={m.id}
-                    className={`flex items-start gap-3.5 ${
+                    className={`flex items-start gap-3.5 animate-in fade-in slide-in-from-bottom-2 duration-300 ${
                       isAI ? "justify-start" : "justify-end"
                     }`}
                   >
@@ -271,12 +330,10 @@ function AIChatContent() {
                   </div>
                 </div>
               )}
-
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Bottom Inner Box: Suggestion Pills + Input Field (Sesuai Desain Figma) */}
-            <div className="border border-gray-200/90 rounded-2xl p-2.5 sm:p-3 bg-white space-y-2.5 mt-6">
+            <div className="flex-shrink-0 border border-gray-200/90 rounded-2xl p-2.5 sm:p-3 bg-white space-y-2.5 mt-4">
               {/* Suggestion Prompt Pills */}
               <div className="flex flex-wrap items-center gap-2 pb-2.5 border-b border-gray-100/90">
                 {samplePrompts.map((prompt, idx) => (
